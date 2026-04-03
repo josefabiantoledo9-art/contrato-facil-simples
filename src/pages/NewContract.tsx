@@ -89,15 +89,10 @@ export default function NewContract() {
         user_id: user.id,
         titulo: `${tipoLabel} — ${dados.contratanteNome || 'Sem nome'}`,
         tipo: tipoLabel,
-        dados: dados as any,
+        dados: dados as unknown as import('@/integrations/supabase/types').Json,
         status,
       });
       if (error) throw error;
-
-      // Increment counter
-      await supabase.rpc('increment_contratos_mes' as any, { uid: user.id }).catch(() => {
-        // RPC may not exist, fallback
-      });
 
       toast({ title: 'Contrato salvo!', description: status === 'gerado' ? 'Contrato gerado com sucesso.' : 'Rascunho salvo.' });
       navigate('/dashboard');
