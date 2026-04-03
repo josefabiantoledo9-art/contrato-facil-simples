@@ -34,38 +34,79 @@ export default function NewContract() {
   const downloadPDF = () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
     const maxWidth = pageWidth - margin * 2;
+    const lineHeight = 6;
+    const bottomMargin = 25;
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
+    // Split the contract into paragraphs (double newline)
+    const paragraphs = contractText.split('\n\n');
 
-    const lines = doc.splitTextToSize(contractText, maxWidth);
     let y = 25;
 
-    // Title
-    const titleLine = lines[0];
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(titleLine, pageWidth / 2, y, { align: 'center' });
-    y += 12;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-
-    for (let i = 1; i < lines.length; i++) {
-      if (y > 270) {
+    const ensureSpace = (needed: number) => {
+      if (y + needed > pageHeight - bottomMargin) {
         doc.addPage();
-        y = 20;
+        y = 25;
       }
-      const line = lines[i];
-      if (line.startsWith('CLÁUSULA') || line.startsWith('CONTRATANTE:') || line.startsWith('CONTRATADO')) {
+    };
+
+    paragraphs.forEach((paragraph, pIdx) => {
+      const trimmed = paragraph.trim();
+      if (!trimmed) return;
+
+      // Title (first paragraph)
+      if (pIdx === 0) {
+        doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-      } else {
+        const titleLines = doc.splitTextToSize(trimmed, maxWidth);
+        ensureSpace(titleLines.length * 8);
+        titleLines.forEach((line: string) => {
+          doc.text(line, pageWidth / 2, y, { align: 'center' });
+          y += 8;
+        });
+        y += 4;
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
+        return;
       }
-      doc.text(line, margin, y);
-      y += 5;
-    }
+
+      // Determine if this paragraph starts with a clause heading or party label
+      const isBoldLine = trimmed.startsWith('CLÁUSULA') || 
+                         trimmed.startsWith('CONTRATANTE:') || 
+                         trimmed.startsWith('CONTRATADO(A):') ||
+                         trimmed.startsWith('___');
+
+      // Handle single-line breaks within a paragraph
+      const subLines = trimmed.split('\n');
+      
+      subLines.forEach((subLine) => {
+        const sub = subLine.trim();
+        if (!sub) {
+          y += lineHeight / 2;
+          return;
+        }
+
+        const isSubBold = sub.startsWith('CLÁUSULA') || 
+                          sub.startsWith('CONTRATANTE:') || 
+                          sub.startsWith('CONTRATADO(A):') ||
+                          sub.startsWith('___');
+
+        doc.setFont('helvetica', isSubBold || isBoldLine ? 'bold' : 'normal');
+
+        const wrapped = doc.splitTextToSize(sub, maxWidth);
+        ensureSpace(wrapped.length * lineHeight);
+
+        wrapped.forEach((wLine: string) => {
+          doc.text(wLine, margin, y);
+          y += lineHeight;
+        });
+      });
+
+      // Add spacing between paragraphs
+      y += 4;
+    });
 
     // Watermark for free plan
     const totalPages = doc.getNumberOfPages();
@@ -73,7 +114,7 @@ export default function NewContract() {
       doc.setPage(p);
       doc.setFontSize(40);
       doc.setTextColor(200, 200, 200);
-      doc.text('ContratoFácil.com.br', pageWidth / 2, 150, { align: 'center', angle: 45 });
+      doc.text('ContratoFácil.com.br', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
       doc.setTextColor(0, 0, 0);
     }
 
