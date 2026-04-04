@@ -72,7 +72,7 @@ b) Efetuar os pagamentos nas condições e prazos estipulados;
 c) Comunicar de forma clara e objetiva suas expectativas e requisitos.
 
 CLÁUSULA QUARTA — DO VALOR E FORMA DE PAGAMENTO
-O valor total dos serviços objeto deste contrato é de R$ ${dados.valorTotal} (${extenso(dados.valorTotal)}), a ser pago na modalidade ${pagamentoLabel}.
+O valor total dos serviços objeto deste contrato é de R$ ${formatCurrency(dados.valorTotal)} (${extenso(dados.valorTotal)}), a ser pago na modalidade ${pagamentoLabel}.
 ${dados.formaPagamento === 'parcelado' ? 'As parcelas serão definidas de comum acordo entre as partes.' : ''}
 ${dados.formaPagamento === 'mensal' ? 'O pagamento será realizado mensalmente até o dia 10 de cada mês subsequente à prestação do serviço.' : ''}
 
@@ -110,9 +110,71 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('pt-BR');
 }
 
+function formatCurrency(valor: string): string {
+  if (!valor) return '___';
+  const num = parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+  if (isNaN(num)) return valor;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function extenso(valor: string): string {
   if (!valor) return '___';
-  return `${valor} reais`;
+  const num = parseFloat(valor.replace(/\./g, '').replace(',', '.'));
+  if (isNaN(num)) return valor;
+
+  const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  const inteiro = Math.floor(num);
+  const centavos = Math.round((num - inteiro) * 100);
+
+  if (inteiro === 0 && centavos === 0) return 'zero reais';
+
+  const extensoGrupo = (n: number): string => {
+    if (n === 0) return '';
+    if (n === 100) return 'cem';
+    if (n < 10) return unidades[n];
+    if (n < 20) return especiais[n - 10];
+    if (n < 100) {
+      const d = Math.floor(n / 10);
+      const u = n % 10;
+      return u === 0 ? dezenas[d] : `${dezenas[d]} e ${unidades[u]}`;
+    }
+    const c = Math.floor(n / 100);
+    const resto = n % 100;
+    if (resto === 0) return n === 100 ? 'cem' : centenas[c];
+    return `${centenas[c]} e ${extensoGrupo(resto)}`;
+  };
+
+  const partes: string[] = [];
+  let resto = inteiro;
+
+  const milhoes = Math.floor(resto / 1000000);
+  resto = resto % 1000000;
+  const milhares = Math.floor(resto / 1000);
+  resto = resto % 1000;
+  const cents = resto;
+
+  if (milhoes > 0) {
+    partes.push(milhoes === 1 ? 'um milhão' : `${extensoGrupo(milhoes)} milhões`);
+  }
+  if (milhares > 0) {
+    partes.push(`${extensoGrupo(milhares)} mil`);
+  }
+  if (cents > 0) {
+    partes.push(extensoGrupo(cents));
+  }
+
+  let resultado = partes.join(', ');
+  if (inteiro > 0) resultado += inteiro === 1 ? ' real' : ' reais';
+
+  if (centavos > 0) {
+    resultado += ` e ${extensoGrupo(centavos)} centavo${centavos === 1 ? '' : 's'}`;
+  }
+
+  return resultado;
 }
 
 function extensoPercent(valor: string): string {
