@@ -267,8 +267,11 @@ export default function NewContract() {
               <CardContent className="p-6 space-y-4">
                 <h3 className="font-semibold text-foreground text-lg">Detalhes do Contrato</h3>
                 <div className="space-y-2">
-                  <Label>Descrição detalhada do serviço</Label>
+                  <Label>Descrição detalhada do serviço <span className="text-destructive">*</span></Label>
                   <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} />
+                  {dados.descricaoServico.trim().length === 0 && (
+                    <p className="text-sm text-destructive">A descrição do serviço é obrigatória</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
