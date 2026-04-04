@@ -72,7 +72,7 @@ b) Efetuar os pagamentos nas condições e prazos estipulados;
 c) Comunicar de forma clara e objetiva suas expectativas e requisitos.
 
 CLÁUSULA QUARTA — DO VALOR E FORMA DE PAGAMENTO
-O valor total dos serviços objeto deste contrato é de R$ ${dados.valorTotal} (${extenso(dados.valorTotal)}), a ser pago na modalidade ${pagamentoLabel}.
+O valor total dos serviços objeto deste contrato é de R$ ${formatCurrency(dados.valorTotal)} (${extenso(dados.valorTotal)}), a ser pago na modalidade ${pagamentoLabel}.
 ${dados.formaPagamento === 'parcelado' ? 'As parcelas serão definidas de comum acordo entre as partes.' : ''}
 ${dados.formaPagamento === 'mensal' ? 'O pagamento será realizado mensalmente até o dia 10 de cada mês subsequente à prestação do serviço.' : ''}
 
