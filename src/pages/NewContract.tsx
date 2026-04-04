@@ -317,7 +317,7 @@ export default function NewContract() {
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
               </Button>
-              <Button onClick={() => setStep(3)}>
+              <Button disabled={!step2Valid} onClick={() => setStep(3)}>
                 Próximo <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
