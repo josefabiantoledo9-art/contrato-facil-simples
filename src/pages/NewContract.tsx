@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft, ArrowRight, Download, Save, Pencil, Briefcase, Code, Palette, Users, Lock, Handshake } from 'lucide-react';
 import { CONTRACT_TYPES, ContractType, ContractData, INITIAL_CONTRACT_DATA, generateContractText } from '@/lib/contract-templates';
+import { validateDocument } from '@/lib/validators';
 import jsPDF from 'jspdf';
 
 const iconMap: Record<string, any> = { Briefcase, Code, Palette, Users, Lock, Handshake };
@@ -24,6 +25,11 @@ export default function NewContract() {
   const [selectedType, setSelectedType] = useState<ContractType | null>(null);
   const [dados, setDados] = useState<ContractData>(INITIAL_CONTRACT_DATA);
   const [saving, setSaving] = useState(false);
+
+  const prestadorDocValidation = useMemo(() => validateDocument(dados.prestadorDocumento), [dados.prestadorDocumento]);
+  const contratanteDocValidation = useMemo(() => validateDocument(dados.contratanteDocumento), [dados.contratanteDocumento]);
+
+  const step2Valid = prestadorDocValidation.valid && contratanteDocValidation.valid && dados.descricaoServico.trim().length > 0;
 
   const updateField = (field: keyof ContractData, value: string) => {
     setDados(prev => ({ ...prev, [field]: value }));
@@ -222,6 +228,9 @@ export default function NewContract() {
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ</Label>
                     <Input value={dados.prestadorDocumento} onChange={e => updateField('prestadorDocumento', e.target.value)} placeholder="000.000.000-00" />
+                    {!prestadorDocValidation.valid && (
+                      <p className="text-sm text-destructive">{prestadorDocValidation.error}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -242,6 +251,9 @@ export default function NewContract() {
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ</Label>
                     <Input value={dados.contratanteDocumento} onChange={e => updateField('contratanteDocumento', e.target.value)} placeholder="000.000.000-00" />
+                    {!contratanteDocValidation.valid && (
+                      <p className="text-sm text-destructive">{contratanteDocValidation.error}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -255,8 +267,11 @@ export default function NewContract() {
               <CardContent className="p-6 space-y-4">
                 <h3 className="font-semibold text-foreground text-lg">Detalhes do Contrato</h3>
                 <div className="space-y-2">
-                  <Label>Descrição detalhada do serviço</Label>
+                  <Label>Descrição detalhada do serviço <span className="text-destructive">*</span></Label>
                   <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} />
+                  {dados.descricaoServico.trim().length === 0 && (
+                    <p className="text-sm text-destructive">A descrição do serviço é obrigatória</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -302,7 +317,7 @@ export default function NewContract() {
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
               </Button>
-              <Button onClick={() => setStep(3)}>
+              <Button disabled={!step2Valid} onClick={() => setStep(3)}>
                 Próximo <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
