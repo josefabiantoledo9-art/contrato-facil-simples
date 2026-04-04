@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft, ArrowRight, Download, Save, Pencil, Briefcase, Code, Palette, Users, Lock, Handshake } from 'lucide-react';
 import { CONTRACT_TYPES, ContractType, ContractData, INITIAL_CONTRACT_DATA, generateContractText } from '@/lib/contract-templates';
+import { validateDocument } from '@/lib/validators';
 import jsPDF from 'jspdf';
 
 const iconMap: Record<string, any> = { Briefcase, Code, Palette, Users, Lock, Handshake };
@@ -24,6 +25,11 @@ export default function NewContract() {
   const [selectedType, setSelectedType] = useState<ContractType | null>(null);
   const [dados, setDados] = useState<ContractData>(INITIAL_CONTRACT_DATA);
   const [saving, setSaving] = useState(false);
+
+  const prestadorDocValidation = useMemo(() => validateDocument(dados.prestadorDocumento), [dados.prestadorDocumento]);
+  const contratanteDocValidation = useMemo(() => validateDocument(dados.contratanteDocumento), [dados.contratanteDocumento]);
+
+  const step2Valid = prestadorDocValidation.valid && contratanteDocValidation.valid && dados.descricaoServico.trim().length > 0;
 
   const updateField = (field: keyof ContractData, value: string) => {
     setDados(prev => ({ ...prev, [field]: value }));
