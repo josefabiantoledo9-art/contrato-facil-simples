@@ -251,6 +251,9 @@ export default function NewContract() {
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ</Label>
                     <Input value={dados.contratanteDocumento} onChange={e => updateField('contratanteDocumento', e.target.value)} placeholder="000.000.000-00" />
+                    {!contratanteDocValidation.valid && (
+                      <p className="text-sm text-destructive">{contratanteDocValidation.error}</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
