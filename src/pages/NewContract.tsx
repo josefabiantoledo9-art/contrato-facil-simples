@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, ArrowLeft, ArrowRight, Download, Save, Pencil, Briefcase, Code, Palette, Users, Lock, Handshake } from 'lucide-react';
-import { CONTRACT_TYPES, ContractType, ContractData, INITIAL_CONTRACT_DATA, generateContractText } from '@/lib/contract-templates';
+import { FileText, ArrowLeft, ArrowRight, Download, Save, Pencil, Briefcase, Code, Palette, Users, Lock, Handshake, Plus, Trash2 } from 'lucide-react';
+import { CONTRACT_TYPES, ContractType, ContractData, ClausulaAdicional, INITIAL_CONTRACT_DATA, generateContractText } from '@/lib/contract-templates';
 import { validateDocument } from '@/lib/validators';
 import jsPDF from 'jspdf';
 
@@ -63,6 +63,31 @@ export default function NewContract() {
     updateField('valorTotal', formatCurrencyInput(value));
   };
 
+  const clausulas = dados.clausulasAdicionais ?? [];
+
+  const addClausula = () => {
+    setDados(prev => ({
+      ...prev,
+      clausulasAdicionais: [...(prev.clausulasAdicionais ?? []), { titulo: '', texto: '' }],
+    }));
+  };
+
+  const updateClausula = (index: number, field: keyof ClausulaAdicional, value: string) => {
+    setDados(prev => {
+      const updated = [...(prev.clausulasAdicionais ?? [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, clausulasAdicionais: updated };
+    });
+  };
+
+  const removeClausula = (index: number) => {
+    setDados(prev => {
+      const updated = [...(prev.clausulasAdicionais ?? [])];
+      updated.splice(index, 1);
+      return { ...prev, clausulasAdicionais: updated };
+    });
+  };
+
   const requiredFields: { key: keyof ContractData; label: string }[] = [
     { key: 'prestadorNome', label: 'Nome do prestador' },
     { key: 'prestadorDocumento', label: 'CPF/CNPJ do prestador' },
@@ -91,6 +116,12 @@ export default function NewContract() {
     if (!contratanteDocValidation.valid) {
       toast({ title: 'Documento inválido', description: `CPF/CNPJ do contratante: ${contratanteDocValidation.error}`, variant: 'destructive' });
       return;
+    }
+    for (let i = 0; i < clausulas.length; i++) {
+      if (!clausulas[i].texto.trim()) {
+        toast({ title: 'Cláusula incompleta', description: `Preencha o texto da cláusula adicional ${i + 1} ou remova-a.`, variant: 'destructive' });
+        return;
+      }
     }
     setStep(3);
   };
@@ -181,7 +212,6 @@ export default function NewContract() {
       });
       if (error) throw error;
 
-      // Incrementa o contador de contratos do mês
       const { data: profileData } = await supabase
         .from('profiles')
         .select('contratos_mes')
@@ -352,6 +382,55 @@ export default function NewContract() {
                     <Input value={dados.cidadeForo} onChange={e => updateField('cidadeForo', e.target.value)} placeholder="São Paulo - SP" />
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Cláusulas adicionais */}
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg">Cláusulas adicionais</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Adicione cláusulas personalizadas ao contrato (opcional)</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={addClausula}>
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar
+                  </Button>
+                </div>
+
+                {clausulas.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+                    Nenhuma cláusula adicional. Clique em "Adicionar" para incluir uma.
+                  </p>
+                )}
+
+                {clausulas.map((clausula, index) => (
+                  <div key={index} className="border border-border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">Cláusula adicional {index + 1}</span>
+                      <Button variant="ghost" size="sm" onClick={() => removeClausula(index)} className="text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Título da cláusula</Label>
+                      <Input
+                        value={clausula.titulo}
+                        onChange={e => updateClausula(index, 'titulo', e.target.value)}
+                        placeholder="Ex: Da Exclusividade, Das Revisões, Do Reajuste..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Texto da cláusula <span className="text-destructive">*</span></Label>
+                      <Textarea
+                        value={clausula.texto}
+                        onChange={e => updateClausula(index, 'texto', e.target.value)}
+                        placeholder="Descreva o conteúdo desta cláusula..."
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
