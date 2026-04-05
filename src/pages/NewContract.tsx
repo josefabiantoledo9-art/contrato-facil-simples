@@ -39,11 +39,6 @@ function formatCurrencyInput(value: string): string {
   return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function parseCurrencyToRaw(formatted: string): string {
-  // Store as the formatted value which contract-templates can parse
-  return formatted;
-}
-
 export default function NewContract() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -83,14 +78,12 @@ export default function NewContract() {
   ];
 
   const handleAdvanceToStep3 = () => {
-    // Check required fields
     for (const { key, label } of requiredFields) {
       if (!dados[key] || !String(dados[key]).trim()) {
         toast({ title: 'Campo obrigatório', description: `Preencha o campo "${label}".`, variant: 'destructive' });
         return;
       }
     }
-    // Validate documents
     if (!prestadorDocValidation.valid) {
       toast({ title: 'Documento inválido', description: `CPF/CNPJ do prestador: ${prestadorDocValidation.error}`, variant: 'destructive' });
       return;
@@ -178,6 +171,7 @@ export default function NewContract() {
     setSaving(true);
     try {
       const tipoLabel = CONTRACT_TYPES.find(t => t.id === selectedType)?.label ?? selectedType;
+
       const { error } = await supabase.from('contratos').insert({
         user_id: user.id,
         titulo: `${tipoLabel} — ${dados.contratanteNome || 'Sem nome'}`,
@@ -186,6 +180,20 @@ export default function NewContract() {
         status,
       });
       if (error) throw error;
+
+      // Incrementa o contador de contratos do mês
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('contratos_mes')
+        .eq('user_id', user.id)
+        .single();
+
+      const atual = profileData?.contratos_mes ?? 0;
+      await supabase
+        .from('profiles')
+        .update({ contratos_mes: atual + 1 })
+        .eq('user_id', user.id);
+
       toast({ title: 'Contrato salvo!', description: status === 'gerado' ? 'Contrato gerado com sucesso.' : 'Rascunho salvo.' });
       navigate('/dashboard');
     } catch (error: any) {
@@ -265,7 +273,7 @@ export default function NewContract() {
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
                     <Input value={dados.prestadorDocumento} onChange={e => handleDocumentChange('prestadorDocumento', e.target.value)} placeholder="000.000.000-00" />
-                    {!prestadorDocValidation.valid && (
+                    {dados.prestadorDocumento && !prestadorDocValidation.valid && (
                       <p className="text-sm text-destructive">{prestadorDocValidation.error}</p>
                     )}
                   </div>
@@ -288,7 +296,7 @@ export default function NewContract() {
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
                     <Input value={dados.contratanteDocumento} onChange={e => handleDocumentChange('contratanteDocumento', e.target.value)} placeholder="000.000.000-00" />
-                    {!contratanteDocValidation.valid && (
+                    {dados.contratanteDocumento && !contratanteDocValidation.valid && (
                       <p className="text-sm text-destructive">{contratanteDocValidation.error}</p>
                     )}
                   </div>
