@@ -8,22 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft } from 'lucide-react';
 
-const ERROR_TRANSLATIONS: Record<string, string> = {
-  'Invalid login credentials': 'E-mail ou senha incorretos',
-  'Email not confirmed': 'Confirme seu e-mail antes de entrar',
-  'User already registered': 'Este e-mail já está cadastrado',
-  'Password should be at least 6 characters': 'A senha deve ter pelo menos 6 caracteres',
-  'Unable to validate email address: invalid format': 'Formato de e-mail inválido',
-};
+type Mode = 'login' | 'signup' | 'forgot';
 
-function translateError(message: string): string {
-  for (const [key, value] of Object.entries(ERROR_TRANSLATIONS)) {
-    if (message.includes(key)) return value;
-  }
-  return message;
+// 🔐 Validações
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-type Mode = 'login' | 'signup' | 'forgot';
+function isStrongPassword(password: string) {
+  return password.length >= 8 && /\d/.test(password);
+}
 
 export default function Auth() {
   const [mode, setMode] = useState<Mode>('login');
@@ -36,13 +30,30 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidEmail(email)) {
+      toast({ title: 'Erro', description: 'E-mail inválido', variant: 'destructive' });
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      if (data.session) navigate('/dashboard');
-    } catch (error: any) {
-      toast({ title: 'Erro ao entrar', description: translateError(error.message), variant: 'destructive' });
+
+      if (error || !data.session) {
+        throw new Error('Credenciais inválidas');
+      }
+
+      // limpa dados sensíveis
+      setPassword('');
+      navigate('/dashboard');
+
+    } catch (error: unknown) {
+      toast({
+        title: 'Erro ao entrar',
+        description: 'Credenciais inválidas',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -50,18 +61,48 @@ export default function Auth() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidEmail(email)) {
+      toast({ title: 'Erro', description: 'E-mail inválido', variant: 'destructive' });
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      toast({
+        title: 'Erro',
+        description: 'Senha deve ter pelo menos 8 caracteres e conter um número',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({ title: 'Erro', description: 'As senhas não coincidem.', variant: 'destructive' });
       return;
     }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.signUp({ email, password });
+
       if (error) throw error;
-      toast({ title: 'Conta criada!', description: 'Verifique seu e-mail para confirmar o cadastro.' });
+
+      toast({
+        title: 'Conta criada!',
+        description: 'Verifique seu e-mail para confirmar o cadastro.'
+      });
+
+      // limpa dados sensíveis
+      setPassword('');
+      setConfirmPassword('');
       setMode('login');
-    } catch (error: any) {
-      toast({ title: 'Erro ao criar conta', description: translateError(error.message), variant: 'destructive' });
+
+    } catch (error: unknown) {
+      toast({
+        title: 'Erro ao criar conta',
+        description: 'Não foi possível criar a conta',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -69,16 +110,32 @@ export default function Auth() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidEmail(email)) {
+      toast({ title: 'Erro', description: 'E-mail inválido', variant: 'destructive' });
+      return;
+    }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/auth',
       });
+
       if (error) throw error;
-      toast({ title: 'E-mail enviado!', description: 'Verifique sua caixa de entrada para redefinir sua senha.' });
+
+      toast({
+        title: 'Se existir uma conta com esse e-mail, você receberá um link.',
+      });
+
       setMode('login');
-    } catch (error: any) {
-      toast({ title: 'Erro', description: translateError(error.message), variant: 'destructive' });
+
+    } catch (error: unknown) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível processar a solicitação',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -92,65 +149,137 @@ export default function Auth() {
             <FileText className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold text-primary">ContratoFácil</span>
           </div>
-          <CardTitle>{mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Criar conta' : 'Recuperar senha'}</CardTitle>
+          <CardTitle>
+            {mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Criar conta' : 'Recuperar senha'}
+          </CardTitle>
           <CardDescription>
-            {mode === 'login' ? 'Acesse sua conta para gerenciar seus contratos' : mode === 'signup' ? 'Crie sua conta gratuita e comece agora' : 'Enviaremos um link para redefinir sua senha'}
+            {mode === 'login'
+              ? 'Acesse sua conta para gerenciar seus contratos'
+              : mode === 'signup'
+              ? 'Crie sua conta gratuita e comece agora'
+              : 'Enviaremos um link para redefinir sua senha'}
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           {mode === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label>E-mail</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                />
               </div>
+
               <div className="space-y-2">
                 <Label>Senha</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</Button>
+
+              <Button type="submit" className="w-full" disabled={loading || !email || !password}>
+                {loading ? 'Entrando...' : 'Entrar'}
+              </Button>
+
               <div className="text-center">
-                <button type="button" onClick={() => setMode('forgot')} className="text-sm text-primary hover:underline">Esqueci minha senha</button>
+                <button type="button" onClick={() => setMode('forgot')} className="text-sm text-primary hover:underline">
+                  Esqueci minha senha
+                </button>
               </div>
+
               <div className="text-center text-sm text-muted-foreground">
                 Não tem conta?{' '}
-                <button type="button" onClick={() => setMode('signup')} className="text-primary font-medium hover:underline">Criar conta</button>
+                <button type="button" onClick={() => setMode('signup')} className="text-primary font-medium hover:underline">
+                  Criar conta
+                </button>
               </div>
             </form>
           )}
+
           {mode === 'signup' && (
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
                 <Label>E-mail</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                />
               </div>
+
               <div className="space-y-2">
                 <Label>Senha</Label>
-                <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
               </div>
+
               <div className="space-y-2">
                 <Label>Confirmar senha</Label>
-                <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
-                {confirmPassword && password !== confirmPassword && (
-                  <p className="text-sm text-destructive">As senhas não coincidem</p>
-                )}
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
               </div>
-              <Button type="submit" className="w-full" disabled={loading || (!!confirmPassword && password !== confirmPassword)}>{loading ? 'Criando conta...' : 'Criar conta'}</Button>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || !email || !password || password !== confirmPassword}
+              >
+                {loading ? 'Criando conta...' : 'Criar conta'}
+              </Button>
+
               <div className="text-center text-sm text-muted-foreground">
                 Já tem conta?{' '}
-                <button type="button" onClick={() => setMode('login')} className="text-primary font-medium hover:underline">Entrar</button>
+                <button type="button" onClick={() => setMode('login')} className="text-primary font-medium hover:underline">
+                  Entrar
+                </button>
               </div>
             </form>
           )}
+
           {mode === 'forgot' && (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
                 <Label>E-mail</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>{loading ? 'Enviando...' : 'Enviar link de recuperação'}</Button>
+
+              <Button type="submit" className="w-full" disabled={loading || !email}>
+                {loading ? 'Enviando...' : 'Enviar link de recuperação'}
+              </Button>
+
               <div className="text-center">
-                <button type="button" onClick={() => setMode('login')} className="text-sm text-muted-foreground hover:underline flex items-center justify-center gap-1 mx-auto">
+                <button
+                  type="button"
+                  onClick={() => setMode('login')}
+                  className="text-sm text-muted-foreground hover:underline flex items-center justify-center gap-1 mx-auto"
+                >
                   <ArrowLeft className="h-3 w-3" /> Voltar para o login
                 </button>
               </div>
