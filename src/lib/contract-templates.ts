@@ -9,6 +9,11 @@ export const CONTRACT_TYPES = [
 
 export type ContractType = typeof CONTRACT_TYPES[number]['id'];
 
+export interface ClausulaAdicional {
+  titulo: string;
+  texto: string;
+}
+
 export interface ContractData {
   prestadorNome: string;
   prestadorDocumento: string;
@@ -23,6 +28,7 @@ export interface ContractData {
   prazoEntrega: string;
   multaRescisao: string;
   cidadeForo: string;
+  clausulasAdicionais?: ClausulaAdicional[];
 }
 
 export const INITIAL_CONTRACT_DATA: ContractData = {
@@ -39,6 +45,7 @@ export const INITIAL_CONTRACT_DATA: ContractData = {
   prazoEntrega: '',
   multaRescisao: '10',
   cidadeForo: '',
+  clausulasAdicionais: [],
 };
 
 export function generateContractText(tipo: ContractType, dados: ContractData): string {
@@ -48,8 +55,15 @@ export function generateContractText(tipo: ContractType, dados: ContractData): s
 
   const tipoLabel = CONTRACT_TYPES.find(t => t.id === tipo)?.label ?? tipo;
   const pagamentoLabel = dados.formaPagamento === 'avista' ? 'à vista' : dados.formaPagamento === 'parcelado' ? 'parcelado' : 'mensal';
-
   const hasIPClause = tipo === 'desenvolvimento-software' || tipo === 'criacao-conteudo';
+
+  // Calcula número da próxima cláusula após as fixas
+  // Cláusulas fixas: 1-8, IP clause vira 9 se houver
+  let nextClauseNumber = hasIPClause ? 10 : 9;
+  const clausulasAdicionais = dados.clausulasAdicionais ?? [];
+
+  const numerosRomanos = ['', 'PRIMEIRA', 'SEGUNDA', 'TERCEIRA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÉTIMA', 'OITAVA', 'NONA', 'DÉCIMA',
+    'DÉCIMA PRIMEIRA', 'DÉCIMA SEGUNDA', 'DÉCIMA TERCEIRA', 'DÉCIMA QUARTA', 'DÉCIMA QUINTA'];
 
   let text = `CONTRATO DE ${tipoLabel.toUpperCase()}
 
@@ -102,6 +116,16 @@ CLÁUSULA NONA — DA PROPRIEDADE INTELECTUAL
 Todos os direitos de propriedade intelectual sobre os entregáveis produzidos no âmbito deste contrato serão transferidos integralmente ao CONTRATANTE após a quitação total do valor contratado.`;
   }
 
+  // Cláusulas adicionais personalizadas
+  clausulasAdicionais.forEach((clausula, index) => {
+    const numero = numerosRomanos[nextClauseNumber + index] ?? `${nextClauseNumber + index}ª`;
+    const tituloFormatado = clausula.titulo ? clausula.titulo.toUpperCase() : 'DISPOSIÇÃO ADICIONAL';
+    text += `
+
+CLÁUSULA ${numero} — ${tituloFormatado}
+${clausula.texto}`;
+  });
+
   text += `
 
 E por estarem assim justas e contratadas, as partes assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
@@ -122,7 +146,11 @@ CONTRATADO(A)`;
 }
 
 function generateNDAText(dados: ContractData): string {
-  return `ACORDO DE CONFIDENCIALIDADE E NÃO DIVULGAÇÃO (NDA)
+  const clausulasAdicionais = dados.clausulasAdicionais ?? [];
+  const numerosRomanos = ['', 'PRIMEIRA', 'SEGUNDA', 'TERCEIRA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÉTIMA', 'OITAVA', 'NONA', 'DÉCIMA',
+    'DÉCIMA PRIMEIRA', 'DÉCIMA SEGUNDA', 'DÉCIMA TERCEIRA', 'DÉCIMA QUARTA', 'DÉCIMA QUINTA'];
+
+  let text = `ACORDO DE CONFIDENCIALIDADE E NÃO DIVULGAÇÃO (NDA)
 
 Pelo presente instrumento particular, as partes abaixo qualificadas:
 
@@ -163,7 +191,18 @@ CLÁUSULA SÉTIMA — DA DEVOLUÇÃO DAS INFORMAÇÕES
 Ao término deste acordo ou a qualquer momento por solicitação da PARTE REVELADORA, a PARTE RECEPTORA deverá devolver ou destruir todas as Informações Confidenciais recebidas, incluindo cópias, em qualquer formato.
 
 CLÁUSULA OITAVA — DO FORO
-As partes elegem o foro da comarca de ${dados.cidadeForo} para dirimir quaisquer dúvidas ou controvérsias oriundas deste acordo, renunciando a qualquer outro, por mais privilegiado que seja.
+As partes elegem o foro da comarca de ${dados.cidadeForo} para dirimir quaisquer dúvidas ou controvérsias oriundas deste contrato, renunciando a qualquer outro, por mais privilegiado que seja.`;
+
+  clausulasAdicionais.forEach((clausula, index) => {
+    const numero = numerosRomanos[9 + index] ?? `${9 + index}ª`;
+    const tituloFormatado = clausula.titulo ? clausula.titulo.toUpperCase() : 'DISPOSIÇÃO ADICIONAL';
+    text += `
+
+CLÁUSULA ${numero} — ${tituloFormatado}
+${clausula.texto}`;
+  });
+
+  text += `
 
 E por estarem assim justas e acordadas, as partes assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
 
@@ -178,6 +217,8 @@ PARTE REVELADORA
 ___________________________________
 ${dados.prestadorNome}
 PARTE RECEPTORA`;
+
+  return text;
 }
 
 function formatDate(dateStr: string): string {
@@ -233,22 +274,13 @@ function extenso(valor: string): string {
   resto = resto % 1000;
   const cents = resto;
 
-  if (milhoes > 0) {
-    partes.push(milhoes === 1 ? 'um milhão' : `${extensoGrupo(milhoes)} milhões`);
-  }
-  if (milhares > 0) {
-    partes.push(`${extensoGrupo(milhares)} mil`);
-  }
-  if (cents > 0) {
-    partes.push(extensoGrupo(cents));
-  }
+  if (milhoes > 0) partes.push(milhoes === 1 ? 'um milhão' : `${extensoGrupo(milhoes)} milhões`);
+  if (milhares > 0) partes.push(`${extensoGrupo(milhares)} mil`);
+  if (cents > 0) partes.push(extensoGrupo(cents));
 
   let resultado = partes.join(', ');
   if (inteiro > 0) resultado += inteiro === 1 ? ' real' : ' reais';
-
-  if (centavos > 0) {
-    resultado += ` e ${extensoGrupo(centavos)} centavo${centavos === 1 ? '' : 's'}`;
-  }
+  if (centavos > 0) resultado += ` e ${extensoGrupo(centavos)} centavo${centavos === 1 ? '' : 's'}`;
 
   return resultado;
 }
