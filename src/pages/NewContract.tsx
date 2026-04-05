@@ -17,6 +17,33 @@ import jsPDF from 'jspdf';
 
 const iconMap: Record<string, any> = { Briefcase, Code, Palette, Users, Lock, Handshake };
 
+function formatDocumentMask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  }
+  return digits
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+}
+
+function formatCurrencyInput(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  const num = parseInt(digits, 10) / 100;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseCurrencyToRaw(formatted: string): string {
+  // Store as the formatted value which contract-templates can parse
+  return formatted;
+}
+
 export default function NewContract() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -29,10 +56,50 @@ export default function NewContract() {
   const prestadorDocValidation = useMemo(() => validateDocument(dados.prestadorDocumento), [dados.prestadorDocumento]);
   const contratanteDocValidation = useMemo(() => validateDocument(dados.contratanteDocumento), [dados.contratanteDocumento]);
 
-  const step2Valid = prestadorDocValidation.valid && contratanteDocValidation.valid && dados.descricaoServico.trim().length > 0;
-
   const updateField = (field: keyof ContractData, value: string) => {
     setDados(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDocumentChange = (field: 'prestadorDocumento' | 'contratanteDocumento', value: string) => {
+    updateField(field, formatDocumentMask(value));
+  };
+
+  const handleCurrencyChange = (value: string) => {
+    updateField('valorTotal', formatCurrencyInput(value));
+  };
+
+  const requiredFields: { key: keyof ContractData; label: string }[] = [
+    { key: 'prestadorNome', label: 'Nome do prestador' },
+    { key: 'prestadorDocumento', label: 'CPF/CNPJ do prestador' },
+    { key: 'prestadorEndereco', label: 'Endereço do prestador' },
+    { key: 'contratanteNome', label: 'Nome do contratante' },
+    { key: 'contratanteDocumento', label: 'CPF/CNPJ do contratante' },
+    { key: 'contratanteEndereco', label: 'Endereço do contratante' },
+    { key: 'descricaoServico', label: 'Descrição do serviço' },
+    { key: 'valorTotal', label: 'Valor total' },
+    { key: 'dataInicio', label: 'Data de início' },
+    { key: 'prazoEntrega', label: 'Prazo de entrega' },
+    { key: 'cidadeForo', label: 'Cidade do foro' },
+  ];
+
+  const handleAdvanceToStep3 = () => {
+    // Check required fields
+    for (const { key, label } of requiredFields) {
+      if (!dados[key] || !String(dados[key]).trim()) {
+        toast({ title: 'Campo obrigatório', description: `Preencha o campo "${label}".`, variant: 'destructive' });
+        return;
+      }
+    }
+    // Validate documents
+    if (!prestadorDocValidation.valid) {
+      toast({ title: 'Documento inválido', description: `CPF/CNPJ do prestador: ${prestadorDocValidation.error}`, variant: 'destructive' });
+      return;
+    }
+    if (!contratanteDocValidation.valid) {
+      toast({ title: 'Documento inválido', description: `CPF/CNPJ do contratante: ${contratanteDocValidation.error}`, variant: 'destructive' });
+      return;
+    }
+    setStep(3);
   };
 
   const contractText = selectedType ? generateContractText(selectedType, dados) : '';
@@ -46,9 +113,7 @@ export default function NewContract() {
     const lineHeight = 6;
     const bottomMargin = 25;
 
-    // Split the contract into paragraphs (double newline)
     const paragraphs = contractText.split('\n\n');
-
     let y = 25;
 
     const ensureSpace = (needed: number) => {
@@ -62,7 +127,6 @@ export default function NewContract() {
       const trimmed = paragraph.trim();
       if (!trimmed) return;
 
-      // Title (first paragraph)
       if (pIdx === 0) {
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
@@ -78,43 +142,25 @@ export default function NewContract() {
         return;
       }
 
-      // Determine if this paragraph starts with a clause heading or party label
-      const isBoldLine = trimmed.startsWith('CLÁUSULA') || 
-                         trimmed.startsWith('CONTRATANTE:') || 
-                         trimmed.startsWith('CONTRATADO(A):') ||
-                         trimmed.startsWith('___');
-
-      // Handle single-line breaks within a paragraph
       const subLines = trimmed.split('\n');
-      
       subLines.forEach((subLine) => {
         const sub = subLine.trim();
-        if (!sub) {
-          y += lineHeight / 2;
-          return;
-        }
+        if (!sub) { y += lineHeight / 2; return; }
 
-        const isSubBold = sub.startsWith('CLÁUSULA') || 
-                          sub.startsWith('CONTRATANTE:') || 
-                          sub.startsWith('CONTRATADO(A):') ||
-                          sub.startsWith('___');
-
-        doc.setFont('helvetica', isSubBold || isBoldLine ? 'bold' : 'normal');
+        const isSubBold = sub.startsWith('CLÁUSULA') || sub.startsWith('CONTRATANTE:') || sub.startsWith('CONTRATADO(A):') || sub.startsWith('PARTE REVELADORA:') || sub.startsWith('PARTE RECEPTORA:') || sub.startsWith('___');
+        doc.setFont('helvetica', isSubBold ? 'bold' : 'normal');
 
         const wrapped = doc.splitTextToSize(sub, maxWidth);
         ensureSpace(wrapped.length * lineHeight);
-
         wrapped.forEach((wLine: string) => {
           doc.text(wLine, margin, y);
           y += lineHeight;
         });
       });
 
-      // Add spacing between paragraphs
       y += 4;
     });
 
-    // Watermark for free plan
     const totalPages = doc.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
@@ -140,7 +186,6 @@ export default function NewContract() {
         status,
       });
       if (error) throw error;
-
       toast({ title: 'Contrato salvo!', description: status === 'gerado' ? 'Contrato gerado com sucesso.' : 'Rascunho salvo.' });
       navigate('/dashboard');
     } catch (error: any) {
@@ -152,7 +197,6 @@ export default function NewContract() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => step > 1 ? setStep(step - 1) : navigate('/dashboard')}>
@@ -165,7 +209,6 @@ export default function NewContract() {
         </div>
       </header>
 
-      {/* Progress */}
       <div className="container mx-auto px-4 py-4 max-w-3xl">
         <div className="flex items-center gap-2 mb-2">
           {['Tipo', 'Dados', 'Preview'].map((label, i) => (
@@ -183,17 +226,12 @@ export default function NewContract() {
       </div>
 
       <main className="container mx-auto px-4 pb-8 max-w-3xl">
-        {/* Step 1 — Type Selection */}
         {step === 1 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             {CONTRACT_TYPES.map((type) => {
               const Icon = iconMap[type.icon] ?? FileText;
               return (
-                <Card
-                  key={type.id}
-                  className={`cursor-pointer transition-all hover:shadow-md ${selectedType === type.id ? 'ring-2 ring-primary border-primary' : ''}`}
-                  onClick={() => setSelectedType(type.id as ContractType)}
-                >
+                <Card key={type.id} className={`cursor-pointer transition-all hover:shadow-md ${selectedType === type.id ? 'ring-2 ring-primary border-primary' : ''}`} onClick={() => setSelectedType(type.id as ContractType)}>
                   <CardContent className="p-5 flex items-start gap-4">
                     <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                       <Icon className="h-6 w-6 text-primary" />
@@ -214,7 +252,6 @@ export default function NewContract() {
           </div>
         )}
 
-        {/* Step 2 — Form */}
         {step === 2 && (
           <div className="space-y-6 mt-4">
             <Card>
@@ -222,19 +259,19 @@ export default function NewContract() {
                 <h3 className="font-semibold text-foreground text-lg">Dados do Prestador</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nome completo</Label>
+                    <Label>Nome completo <span className="text-destructive">*</span></Label>
                     <Input value={dados.prestadorNome} onChange={e => updateField('prestadorNome', e.target.value)} placeholder="Nome do prestador" />
                   </div>
                   <div className="space-y-2">
-                    <Label>CPF ou CNPJ</Label>
-                    <Input value={dados.prestadorDocumento} onChange={e => updateField('prestadorDocumento', e.target.value)} placeholder="000.000.000-00" />
+                    <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
+                    <Input value={dados.prestadorDocumento} onChange={e => handleDocumentChange('prestadorDocumento', e.target.value)} placeholder="000.000.000-00" />
                     {!prestadorDocValidation.valid && (
                       <p className="text-sm text-destructive">{prestadorDocValidation.error}</p>
                     )}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Endereço</Label>
+                  <Label>Endereço <span className="text-destructive">*</span></Label>
                   <Input value={dados.prestadorEndereco} onChange={e => updateField('prestadorEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" />
                 </div>
               </CardContent>
@@ -245,19 +282,19 @@ export default function NewContract() {
                 <h3 className="font-semibold text-foreground text-lg">Dados do Contratante</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nome completo</Label>
+                    <Label>Nome completo <span className="text-destructive">*</span></Label>
                     <Input value={dados.contratanteNome} onChange={e => updateField('contratanteNome', e.target.value)} placeholder="Nome do contratante" />
                   </div>
                   <div className="space-y-2">
-                    <Label>CPF ou CNPJ</Label>
-                    <Input value={dados.contratanteDocumento} onChange={e => updateField('contratanteDocumento', e.target.value)} placeholder="000.000.000-00" />
+                    <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
+                    <Input value={dados.contratanteDocumento} onChange={e => handleDocumentChange('contratanteDocumento', e.target.value)} placeholder="000.000.000-00" />
                     {!contratanteDocValidation.valid && (
                       <p className="text-sm text-destructive">{contratanteDocValidation.error}</p>
                     )}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Endereço</Label>
+                  <Label>Endereço <span className="text-destructive">*</span></Label>
                   <Input value={dados.contratanteEndereco} onChange={e => updateField('contratanteEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" />
                 </div>
               </CardContent>
@@ -269,14 +306,11 @@ export default function NewContract() {
                 <div className="space-y-2">
                   <Label>Descrição detalhada do serviço <span className="text-destructive">*</span></Label>
                   <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} />
-                  {dados.descricaoServico.trim().length === 0 && (
-                    <p className="text-sm text-destructive">A descrição do serviço é obrigatória</p>
-                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Valor total (R$)</Label>
-                    <Input value={dados.valorTotal} onChange={e => updateField('valorTotal', e.target.value)} placeholder="5.000,00" />
+                    <Label>Valor total (R$) <span className="text-destructive">*</span></Label>
+                    <Input value={dados.valorTotal} onChange={e => handleCurrencyChange(e.target.value)} placeholder="5.000,00" />
                   </div>
                   <div className="space-y-2">
                     <Label>Forma de pagamento</Label>
@@ -292,11 +326,11 @@ export default function NewContract() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Data de início</Label>
+                    <Label>Data de início <span className="text-destructive">*</span></Label>
                     <Input type="date" value={dados.dataInicio} onChange={e => updateField('dataInicio', e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Prazo de entrega</Label>
+                    <Label>Prazo de entrega <span className="text-destructive">*</span></Label>
                     <Input type="date" value={dados.prazoEntrega} onChange={e => updateField('prazoEntrega', e.target.value)} />
                   </div>
                 </div>
@@ -306,7 +340,7 @@ export default function NewContract() {
                     <Input value={dados.multaRescisao} onChange={e => updateField('multaRescisao', e.target.value)} placeholder="10" />
                   </div>
                   <div className="space-y-2">
-                    <Label>Cidade do foro</Label>
+                    <Label>Cidade do foro <span className="text-destructive">*</span></Label>
                     <Input value={dados.cidadeForo} onChange={e => updateField('cidadeForo', e.target.value)} placeholder="São Paulo - SP" />
                   </div>
                 </div>
@@ -317,14 +351,13 @@ export default function NewContract() {
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
               </Button>
-              <Button disabled={!step2Valid} onClick={() => setStep(3)}>
+              <Button onClick={handleAdvanceToStep3}>
                 Próximo <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step 3 — Preview */}
         {step === 3 && (
           <div className="mt-4 space-y-6">
             <Card>
@@ -332,7 +365,6 @@ export default function NewContract() {
                 <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">{contractText}</pre>
               </CardContent>
             </Card>
-
             <div className="flex flex-col sm:flex-row gap-3">
               <Button variant="outline" onClick={() => setStep(2)}>
                 <Pencil className="h-4 w-4 mr-1" /> Editar

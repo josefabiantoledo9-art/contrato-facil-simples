@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2 } from 'lucide-react';
 import PricingModal from '@/components/PricingModal';
 
@@ -19,6 +20,7 @@ interface Contrato {
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [profile, setProfile] = useState<{ plano: string; contratos_mes: number } | null>(null);
   const [pricingOpen, setPricingOpen] = useState(false);
@@ -26,21 +28,35 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
     const fetchData = async () => {
-      const [{ data: profileData }, { data: contratosData }] = await Promise.all([
-        supabase.from('profiles').select('plano, contratos_mes').eq('user_id', user.id).single(),
-        supabase.from('contratos').select('id, titulo, tipo, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
-      ]);
-      if (profileData) setProfile(profileData);
-      if (contratosData) setContratos(contratosData);
+      try {
+        const [{ data: profileData, error: profileError }, { data: contratosData, error: contratosError }] = await Promise.all([
+          supabase.from('profiles').select('plano, contratos_mes').eq('user_id', user.id).single(),
+          supabase.from('contratos').select('id, titulo, tipo, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        ]);
+        if (profileError) throw profileError;
+        if (contratosError) throw contratosError;
+        if (profileData) setProfile(profileData);
+        if (contratosData) setContratos(contratosData);
+      } catch {
+        toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
+      }
     };
     fetchData();
   }, [user]);
 
-  const maxContratos = profile?.plano === 'free' ? 3 : profile?.plano === 'pro' ? 999 : 999;
+  const maxContratos = profile?.plano === 'free' ? 3 : 999;
+  const isFreeLimitReached = profile?.plano === 'free' && (profile?.contratos_mes ?? 0) >= 3;
+
+  const handleNewContract = () => {
+    if (isFreeLimitReached) {
+      setPricingOpen(true);
+    } else {
+      navigate('/novo-contrato');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -57,7 +73,6 @@ export default function Dashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Stats */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <Card className="flex-1">
             <CardContent className="p-4 flex items-center gap-3">
@@ -92,13 +107,11 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* New Contract Button */}
-        <Button size="lg" className="w-full sm:w-auto mb-8 bg-success hover:bg-success/90 text-success-foreground" onClick={() => navigate('/novo-contrato')}>
+        <Button size="lg" className="w-full sm:w-auto mb-8 bg-success hover:bg-success/90 text-success-foreground" onClick={handleNewContract}>
           <Plus className="h-5 w-5 mr-2" />
           Novo contrato
         </Button>
 
-        {/* Contract list */}
         <h2 className="text-lg font-semibold text-foreground mb-4">Seus contratos</h2>
         {contratos.length === 0 ? (
           <Card>

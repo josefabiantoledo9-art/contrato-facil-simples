@@ -42,10 +42,16 @@ export const INITIAL_CONTRACT_DATA: ContractData = {
 };
 
 export function generateContractText(tipo: ContractType, dados: ContractData): string {
+  if (tipo === 'nda') {
+    return generateNDAText(dados);
+  }
+
   const tipoLabel = CONTRACT_TYPES.find(t => t.id === tipo)?.label ?? tipo;
   const pagamentoLabel = dados.formaPagamento === 'avista' ? 'à vista' : dados.formaPagamento === 'parcelado' ? 'parcelado' : 'mensal';
 
-  return `CONTRATO DE ${tipoLabel.toUpperCase()}
+  const hasIPClause = tipo === 'desenvolvimento-software' || tipo === 'criacao-conteudo';
+
+  let text = `CONTRATO DE ${tipoLabel.toUpperCase()}
 
 Pelo presente instrumento particular, as partes abaixo qualificadas:
 
@@ -87,7 +93,16 @@ CLÁUSULA SÉTIMA — DA CONFIDENCIALIDADE
 As partes se obrigam a manter em sigilo todas as informações confidenciais obtidas em razão deste contrato, não podendo divulgá-las a terceiros sem autorização prévia e por escrito da parte titular da informação.
 
 CLÁUSULA OITAVA — DO FORO
-As partes elegem o foro da comarca de ${dados.cidadeForo} para dirimir quaisquer dúvidas ou controvérsias oriundas deste contrato, renunciando a qualquer outro, por mais privilegiado que seja.
+As partes elegem o foro da comarca de ${dados.cidadeForo} para dirimir quaisquer dúvidas ou controvérsias oriundas deste contrato, renunciando a qualquer outro, por mais privilegiado que seja.`;
+
+  if (hasIPClause) {
+    text += `
+
+CLÁUSULA NONA — DA PROPRIEDADE INTELECTUAL
+Todos os direitos de propriedade intelectual sobre os entregáveis produzidos no âmbito deste contrato serão transferidos integralmente ao CONTRATANTE após a quitação total do valor contratado.`;
+  }
+
+  text += `
 
 E por estarem assim justas e contratadas, as partes assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
 
@@ -102,6 +117,67 @@ CONTRATANTE
 ___________________________________
 ${dados.prestadorNome}
 CONTRATADO(A)`;
+
+  return text;
+}
+
+function generateNDAText(dados: ContractData): string {
+  return `ACORDO DE CONFIDENCIALIDADE E NÃO DIVULGAÇÃO (NDA)
+
+Pelo presente instrumento particular, as partes abaixo qualificadas:
+
+PARTE REVELADORA: ${dados.contratanteNome}, inscrito(a) no CPF/CNPJ sob o nº ${dados.contratanteDocumento}, com endereço em ${dados.contratanteEndereco}, doravante denominado(a) PARTE REVELADORA;
+
+PARTE RECEPTORA: ${dados.prestadorNome}, inscrito(a) no CPF/CNPJ sob o nº ${dados.prestadorDocumento}, com endereço em ${dados.prestadorEndereco}, doravante denominado(a) PARTE RECEPTORA;
+
+Têm entre si justo e acordado o seguinte:
+
+CLÁUSULA PRIMEIRA — DO OBJETO
+O presente acordo tem por objeto estabelecer as condições de confidencialidade aplicáveis às informações compartilhadas entre as partes no contexto de: ${dados.descricaoServico}.
+
+CLÁUSULA SEGUNDA — DA DEFINIÇÃO DE INFORMAÇÕES CONFIDENCIAIS
+Para fins deste acordo, considera-se "Informação Confidencial" toda e qualquer informação, seja ela técnica, comercial, financeira, estratégica, operacional ou de qualquer outra natureza, divulgada por uma parte à outra, de forma oral, escrita, eletrônica ou por qualquer outro meio, incluindo, mas não se limitando a: dados financeiros, planos de negócios, listas de clientes, segredos industriais, metodologias, softwares, códigos-fonte, projetos, estudos, pesquisas e quaisquer outros dados de natureza proprietária.
+
+CLÁUSULA TERCEIRA — DAS OBRIGAÇÕES DA PARTE RECEPTORA
+A PARTE RECEPTORA se compromete a:
+a) Manter em absoluto sigilo todas as Informações Confidenciais recebidas;
+b) Não divulgar, reproduzir, transmitir ou de qualquer forma disponibilizar as Informações Confidenciais a terceiros sem o prévio consentimento por escrito da PARTE REVELADORA;
+c) Utilizar as Informações Confidenciais exclusivamente para a finalidade prevista neste acordo;
+d) Restringir o acesso às Informações Confidenciais apenas aos seus colaboradores que necessitem conhecê-las, assegurando que estes estejam vinculados a obrigações de confidencialidade equivalentes.
+
+CLÁUSULA QUARTA — DAS EXCEÇÕES
+Não serão consideradas Informações Confidenciais aquelas que:
+a) Já eram de domínio público na data da divulgação;
+b) Tornaram-se públicas sem culpa da PARTE RECEPTORA;
+c) Foram legitimamente obtidas de terceiros sem restrição de confidencialidade;
+d) Já estavam em posse da PARTE RECEPTORA antes da celebração deste acordo.
+
+CLÁUSULA QUINTA — DO PRAZO DE VIGÊNCIA DO SIGILO
+As obrigações de confidencialidade previstas neste acordo permanecerão em vigor pelo prazo de 5 (cinco) anos, contados a partir da data de assinatura deste instrumento, independentemente do término de qualquer relação comercial entre as partes.
+
+CLÁUSULA SEXTA — DAS PENALIDADES POR VIOLAÇÃO
+A violação de qualquer cláusula deste acordo sujeitará a parte infratora ao pagamento de indenização por perdas e danos, sem prejuízo das demais sanções legais cabíveis, incluindo medidas judiciais de urgência para cessar a divulgação indevida.
+A multa por violação será equivalente a ${dados.multaRescisao}% (${extensoPercent(dados.multaRescisao)} por cento) do valor estimado do dano ou do contrato relacionado, sem prejuízo de indenização suplementar.
+
+CLÁUSULA SÉTIMA — DA DEVOLUÇÃO DAS INFORMAÇÕES
+Ao término deste acordo ou a qualquer momento por solicitação da PARTE REVELADORA, a PARTE RECEPTORA deverá devolver ou destruir todas as Informações Confidenciais recebidas, incluindo cópias, em qualquer formato.
+
+CLÁUSULA OITAVA — DO FORO
+As partes elegem o foro da comarca de ${dados.cidadeForo} para dirimir quaisquer dúvidas ou controvérsias oriundas deste acordo, renunciando a qualquer outro, por mais privilegiado que seja.
+
+E por estarem assim justas e acordadas, as partes assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
+
+${dados.cidadeForo}, ${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}.
+
+
+___________________________________
+${dados.contratanteNome}
+PARTE REVELADORA
+
+
+___________________________________
+${dados.prestadorNome}
+PARTE RECEPTORA`;
 }
 
 function formatDate(dateStr: string): string {
@@ -179,5 +255,29 @@ function extenso(valor: string): string {
 
 function extensoPercent(valor: string): string {
   if (!valor) return '___';
-  return valor;
+  const num = parseInt(valor, 10);
+  if (isNaN(num)) return valor;
+
+  const unidades = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+  const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+  if (num === 0) return 'zero';
+  if (num === 100) return 'cem';
+  if (num < 10) return unidades[num];
+  if (num < 20) return especiais[num - 10];
+  if (num < 100) {
+    const d = Math.floor(num / 10);
+    const u = num % 10;
+    return u === 0 ? dezenas[d] : `${dezenas[d]} e ${unidades[u]}`;
+  }
+  const c = Math.floor(num / 100);
+  const r = num % 100;
+  if (r === 0) return centenas[c];
+  if (r < 10) return `${centenas[c]} e ${unidades[r]}`;
+  if (r < 20) return `${centenas[c]} e ${especiais[r - 10]}`;
+  const d = Math.floor(r / 10);
+  const u = r % 10;
+  return u === 0 ? `${centenas[c]} e ${dezenas[d]}` : `${centenas[c]} e ${dezenas[d]} e ${unidades[u]}`;
 }
