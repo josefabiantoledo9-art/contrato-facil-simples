@@ -18,6 +18,23 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState<ContractListItem[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ContractListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!user || !deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteContract(deleteTarget.id, user.id);
+      setContratos(prev => prev.filter(c => c.id !== deleteTarget.id));
+      toast({ title: 'Contrato excluído', description: 'O contrato foi removido com sucesso.' });
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível excluir o contrato.', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
