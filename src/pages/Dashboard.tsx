@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchUserContracts, deleteContract, ContractListItem } from '@/services/contracts';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
