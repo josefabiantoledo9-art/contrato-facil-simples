@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchUserContracts, ContractListItem } from '@/services/contracts';
+import { fetchUserContracts, deleteContract, ContractListItem } from '@/services/contracts';
 import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2 } from 'lucide-react';
 import PricingModal from '@/components/PricingModal';
 
 export default function Dashboard() {
@@ -17,6 +18,23 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState<ContractListItem[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ContractListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!user || !deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteContract(deleteTarget.id, user.id);
+      setContratos(prev => prev.filter(c => c.id !== deleteTarget.id));
+      toast({ title: 'Contrato excluído', description: 'O contrato foi removido com sucesso.' });
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível excluir o contrato.', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -125,10 +143,20 @@ export default function Dashboard() {
                       <p className="text-sm text-muted-foreground">{c.tipo} • {new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
                     </div>
                   </div>
-                  <Badge variant={c.status === 'gerado' ? 'default' : 'secondary'} className={c.status === 'gerado' ? 'bg-success text-success-foreground' : ''}>
-                    {c.status === 'gerado' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
-                    {c.status === 'gerado' ? 'Gerado' : 'Rascunho'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={c.status === 'gerado' ? 'default' : 'secondary'} className={c.status === 'gerado' ? 'bg-success text-success-foreground' : ''}>
+                      {c.status === 'gerado' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                      {c.status === 'gerado' ? 'Gerado' : 'Rascunho'}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -137,6 +165,23 @@ export default function Dashboard() {
       </main>
 
       <PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contrato</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{deleteTarget?.titulo}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
