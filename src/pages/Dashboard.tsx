@@ -21,14 +21,29 @@ export default function Dashboard() {
   const [pricingOpen, setPricingOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ContractListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 10;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const loadContracts = async (p: number) => {
+    if (!user) return;
+    try {
+      const result = await fetchUserContracts(user.id, p, PAGE_SIZE);
+      setContratos(result.data);
+      setTotalCount(result.count);
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
+    }
+  };
 
   const handleDelete = async () => {
     if (!user || !deleteTarget) return;
     setDeleting(true);
     try {
       await deleteContract(deleteTarget.id, user.id);
-      setContratos(prev => prev.filter(c => c.id !== deleteTarget.id));
       toast({ title: 'Contrato excluído', description: 'O contrato foi removido com sucesso.' });
+      await loadContracts(page);
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível excluir o contrato.', variant: 'destructive' });
     } finally {
@@ -41,18 +56,19 @@ export default function Dashboard() {
     if (!user) return;
     const loadData = async () => {
       try {
-        const [profileData, contratosData] = await Promise.all([
+        const [profileData, contratosResult] = await Promise.all([
           fetchUserProfile(user.id),
-          fetchUserContracts(user.id),
+          fetchUserContracts(user.id, page, PAGE_SIZE),
         ]);
         if (profileData) setProfile(profileData);
-        setContratos(contratosData);
+        setContratos(contratosResult.data);
+        setTotalCount(contratosResult.count);
       } catch {
         toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
       }
     };
     loadData();
-  }, [user]);
+  }, [user, page]);
 
   const maxContratos = profile?.plano === 'free' ? 3 : 999;
   const isFreeLimitReached = profile?.plano === 'free' && (profile?.contratos_mes ?? 0) >= 3;
