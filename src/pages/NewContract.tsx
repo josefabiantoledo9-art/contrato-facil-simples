@@ -227,7 +227,7 @@ export default function NewContract() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome completo <span className="text-destructive">*</span></Label>
-                    <Input value={dados.prestadorNome} onChange={e => updateField('prestadorNome', e.target.value)} placeholder="Nome do prestador" />
+                    <Input value={dados.prestadorNome} onChange={e => updateField('prestadorNome', e.target.value)} placeholder="Nome do prestador" maxLength={MAX_NAME_LENGTH} />
                   </div>
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
@@ -239,7 +239,7 @@ export default function NewContract() {
                 </div>
                 <div className="space-y-2">
                   <Label>Endereço <span className="text-destructive">*</span></Label>
-                  <Input value={dados.prestadorEndereco} onChange={e => updateField('prestadorEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" />
+                  <Input value={dados.prestadorEndereco} onChange={e => updateField('prestadorEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" maxLength={MAX_ADDRESS_LENGTH} />
                 </div>
               </CardContent>
             </Card>
@@ -250,7 +250,7 @@ export default function NewContract() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome completo <span className="text-destructive">*</span></Label>
-                    <Input value={dados.contratanteNome} onChange={e => updateField('contratanteNome', e.target.value)} placeholder="Nome do contratante" />
+                    <Input value={dados.contratanteNome} onChange={e => updateField('contratanteNome', e.target.value)} placeholder="Nome do contratante" maxLength={MAX_NAME_LENGTH} />
                   </div>
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
@@ -262,7 +262,7 @@ export default function NewContract() {
                 </div>
                 <div className="space-y-2">
                   <Label>Endereço <span className="text-destructive">*</span></Label>
-                  <Input value={dados.contratanteEndereco} onChange={e => updateField('contratanteEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" />
+                  <Input value={dados.contratanteEndereco} onChange={e => updateField('contratanteEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" maxLength={MAX_ADDRESS_LENGTH} />
                 </div>
               </CardContent>
             </Card>
@@ -272,7 +272,7 @@ export default function NewContract() {
                 <h3 className="font-semibold text-foreground text-lg">Detalhes do Contrato</h3>
                 <div className="space-y-2">
                   <Label>Descrição detalhada do serviço <span className="text-destructive">*</span></Label>
-                  <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} />
+                  <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} maxLength={2000} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -308,7 +308,7 @@ export default function NewContract() {
                   </div>
                   <div className="space-y-2">
                     <Label>Cidade do foro <span className="text-destructive">*</span></Label>
-                    <Input value={dados.cidadeForo} onChange={e => updateField('cidadeForo', e.target.value)} placeholder="São Paulo - SP" />
+                     <Input value={dados.cidadeForo} onChange={e => updateField('cidadeForo', e.target.value)} placeholder="São Paulo - SP" maxLength={100} />
                   </div>
                 </div>
               </CardContent>
