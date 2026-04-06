@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { fetchUserContracts, ContractListItem } from '@/services/contracts';
+import { fetchUserContracts, deleteContract, ContractListItem } from '@/services/contracts';
 import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2 } from 'lucide-react';
 import PricingModal from '@/components/PricingModal';
 
 export default function Dashboard() {
