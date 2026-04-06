@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchUserContracts, deleteContract, ContractListItem } from '@/services/contracts';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,14 +21,29 @@ export default function Dashboard() {
   const [pricingOpen, setPricingOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ContractListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 10;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const loadContracts = async (p: number) => {
+    if (!user) return;
+    try {
+      const result = await fetchUserContracts(user.id, p, PAGE_SIZE);
+      setContratos(result.data);
+      setTotalCount(result.count);
+    } catch {
+      toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
+    }
+  };
 
   const handleDelete = async () => {
     if (!user || !deleteTarget) return;
     setDeleting(true);
     try {
       await deleteContract(deleteTarget.id, user.id);
-      setContratos(prev => prev.filter(c => c.id !== deleteTarget.id));
       toast({ title: 'Contrato excluído', description: 'O contrato foi removido com sucesso.' });
+      await loadContracts(page);
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível excluir o contrato.', variant: 'destructive' });
     } finally {
@@ -40,18 +56,19 @@ export default function Dashboard() {
     if (!user) return;
     const loadData = async () => {
       try {
-        const [profileData, contratosData] = await Promise.all([
+        const [profileData, contratosResult] = await Promise.all([
           fetchUserProfile(user.id),
-          fetchUserContracts(user.id),
+          fetchUserContracts(user.id, page, PAGE_SIZE),
         ]);
         if (profileData) setProfile(profileData);
-        setContratos(contratosData);
+        setContratos(contratosResult.data);
+        setTotalCount(contratosResult.count);
       } catch {
         toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
       }
     };
     loadData();
-  }, [user]);
+  }, [user, page]);
 
   const maxContratos = profile?.plano === 'free' ? 3 : 999;
   const isFreeLimitReached = profile?.plano === 'free' && (profile?.contratos_mes ?? 0) >= 3;
@@ -130,37 +147,64 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {contratos.map(c => (
-              <Card key={c.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/contrato/${c.id}`)}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-primary" />
+          <>
+            <div className="space-y-3">
+              {contratos.map(c => (
+                <Card key={c.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/contrato/${c.id}`)}>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{c.titulo}</p>
+                        <p className="text-sm text-muted-foreground">{c.tipo} • {new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-foreground">{c.titulo}</p>
-                      <p className="text-sm text-muted-foreground">{c.tipo} • {new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={c.status === 'gerado' ? 'default' : 'secondary'} className={c.status === 'gerado' ? 'bg-success text-success-foreground' : ''}>
+                        {c.status === 'gerado' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                        {c.status === 'gerado' ? 'Gerado' : 'Rascunho'}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={c.status === 'gerado' ? 'default' : 'secondary'} className={c.status === 'gerado' ? 'bg-success text-success-foreground' : ''}>
-                      {c.status === 'gerado' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
-                      {c.status === 'gerado' ? 'Gerado' : 'Rascunho'}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <Pagination className="mt-6">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      className={page <= 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                    <PaginationItem key={p}>
+                      <PaginationLink isActive={p === page} onClick={() => setPage(p)} className="cursor-pointer">
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      className={page >= totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </>
         )}
       </main>
 

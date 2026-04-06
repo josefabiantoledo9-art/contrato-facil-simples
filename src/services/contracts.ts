@@ -21,16 +21,28 @@ export interface ContractDetail {
   created_at: string;
 }
 
-export async function fetchUserContracts(userId: string): Promise<ContractListItem[]> {
-  const { data, error } = await supabase
+export interface PaginatedContracts {
+  data: ContractListItem[];
+  count: number;
+}
+
+export async function fetchUserContracts(
+  userId: string,
+  page = 1,
+  pageSize = 10,
+): Promise<PaginatedContracts> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
     .from('contratos')
-    .select(SAFE_CONTRACT_COLUMNS)
+    .select(SAFE_CONTRACT_COLUMNS, { count: 'exact' })
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(100);
+    .range(from, to);
 
   if (error) throw new Error('Erro ao carregar contratos.');
-  return data ?? [];
+  return { data: data ?? [], count: count ?? 0 };
 }
 
 export async function fetchContractById(contractId: string, userId: string): Promise<ContractDetail | null> {
