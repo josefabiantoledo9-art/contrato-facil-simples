@@ -143,10 +143,20 @@ export default function Dashboard() {
                       <p className="text-sm text-muted-foreground">{c.tipo} • {new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
                     </div>
                   </div>
-                  <Badge variant={c.status === 'gerado' ? 'default' : 'secondary'} className={c.status === 'gerado' ? 'bg-success text-success-foreground' : ''}>
-                    {c.status === 'gerado' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
-                    {c.status === 'gerado' ? 'Gerado' : 'Rascunho'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={c.status === 'gerado' ? 'default' : 'secondary'} className={c.status === 'gerado' ? 'bg-success text-success-foreground' : ''}>
+                      {c.status === 'gerado' ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <Clock className="h-3 w-3 mr-1" />}
+                      {c.status === 'gerado' ? 'Gerado' : 'Rascunho'}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -155,6 +165,23 @@ export default function Dashboard() {
       </main>
 
       <PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir contrato</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{deleteTarget?.titulo}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
