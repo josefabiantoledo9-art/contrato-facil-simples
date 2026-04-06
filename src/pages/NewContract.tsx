@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { createContract } from '@/services/contracts';
+import { incrementContractCount } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +14,11 @@ import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft, ArrowRight, Download, Save, Pencil, Briefcase, Code, Palette, Users, Lock, Handshake, Plus, Trash2 } from 'lucide-react';
 import { CONTRACT_TYPES, ContractType, ContractData, ClausulaAdicional, INITIAL_CONTRACT_DATA, generateContractText } from '@/lib/contract-templates';
 import { validateDocument } from '@/lib/validators';
-import jsPDF from 'jspdf';
+import { generatePDF } from '@/lib/pdf';
+
+const MAX_TEXT_LENGTH = 500;
+const MAX_NAME_LENGTH = 200;
+const MAX_ADDRESS_LENGTH = 300;
 
 const iconMap: Record<string, any> = { Briefcase, Code, Palette, Users, Lock, Handshake };
 
