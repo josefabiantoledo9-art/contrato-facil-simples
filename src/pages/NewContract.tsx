@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { createContract } from '@/services/contracts';
+import { incrementContractCount } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,7 +14,11 @@ import { useToast } from '@/hooks/use-toast';
 import { FileText, ArrowLeft, ArrowRight, Download, Save, Pencil, Briefcase, Code, Palette, Users, Lock, Handshake, Plus, Trash2 } from 'lucide-react';
 import { CONTRACT_TYPES, ContractType, ContractData, ClausulaAdicional, INITIAL_CONTRACT_DATA, generateContractText } from '@/lib/contract-templates';
 import { validateDocument } from '@/lib/validators';
-import jsPDF from 'jspdf';
+import { generatePDF } from '@/lib/pdf';
+
+const MAX_TEXT_LENGTH = 500;
+const MAX_NAME_LENGTH = 200;
+const MAX_ADDRESS_LENGTH = 300;
 
 const iconMap: Record<string, any> = { Briefcase, Code, Palette, Users, Lock, Handshake };
 
@@ -129,72 +134,7 @@ export default function NewContract() {
   const contractText = selectedType ? generateContractText(selectedType, dados) : '';
 
   const downloadPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 20;
-    const maxWidth = pageWidth - margin * 2;
-    const lineHeight = 6;
-    const bottomMargin = 25;
-
-    const paragraphs = contractText.split('\n\n');
-    let y = 25;
-
-    const ensureSpace = (needed: number) => {
-      if (y + needed > pageHeight - bottomMargin) {
-        doc.addPage();
-        y = 25;
-      }
-    };
-
-    paragraphs.forEach((paragraph, pIdx) => {
-      const trimmed = paragraph.trim();
-      if (!trimmed) return;
-
-      if (pIdx === 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        const titleLines = doc.splitTextToSize(trimmed, maxWidth);
-        ensureSpace(titleLines.length * 8);
-        titleLines.forEach((line: string) => {
-          doc.text(line, pageWidth / 2, y, { align: 'center' });
-          y += 8;
-        });
-        y += 4;
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        return;
-      }
-
-      const subLines = trimmed.split('\n');
-      subLines.forEach((subLine) => {
-        const sub = subLine.trim();
-        if (!sub) { y += lineHeight / 2; return; }
-
-        const isSubBold = sub.startsWith('CLÁUSULA') || sub.startsWith('CONTRATANTE:') || sub.startsWith('CONTRATADO(A):') || sub.startsWith('PARTE REVELADORA:') || sub.startsWith('PARTE RECEPTORA:') || sub.startsWith('___');
-        doc.setFont('helvetica', isSubBold ? 'bold' : 'normal');
-
-        const wrapped = doc.splitTextToSize(sub, maxWidth);
-        ensureSpace(wrapped.length * lineHeight);
-        wrapped.forEach((wLine: string) => {
-          doc.text(wLine, margin, y);
-          y += lineHeight;
-        });
-      });
-
-      y += 4;
-    });
-
-    const totalPages = doc.getNumberOfPages();
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p);
-      doc.setFontSize(40);
-      doc.setTextColor(200, 200, 200);
-      doc.text('ContratoFácil.com.br', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
-      doc.setTextColor(0, 0, 0);
-    }
-
-    doc.save(`contrato-${selectedType}.pdf`);
+    generatePDF(contractText, `contrato-${selectedType}.pdf`);
   };
 
   const saveContract = async (status: 'rascunho' | 'gerado') => {
@@ -203,31 +143,20 @@ export default function NewContract() {
     try {
       const tipoLabel = CONTRACT_TYPES.find(t => t.id === selectedType)?.label ?? selectedType;
 
-      const { error } = await supabase.from('contratos').insert({
-        user_id: user.id,
-        titulo: `${tipoLabel} — ${dados.contratanteNome || 'Sem nome'}`,
+      await createContract({
+        userId: user.id,
+        titulo: `${tipoLabel} — ${(dados.contratanteNome || 'Sem nome').slice(0, MAX_NAME_LENGTH)}`,
         tipo: tipoLabel,
-        dados: dados as unknown as import('@/integrations/supabase/types').Json,
+        dados,
         status,
       });
-      if (error) throw error;
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('contratos_mes')
-        .eq('user_id', user.id)
-        .single();
-
-      const atual = profileData?.contratos_mes ?? 0;
-      await supabase
-        .from('profiles')
-        .update({ contratos_mes: atual + 1 })
-        .eq('user_id', user.id);
+      await incrementContractCount(user.id);
 
       toast({ title: 'Contrato salvo!', description: status === 'gerado' ? 'Contrato gerado com sucesso.' : 'Rascunho salvo.' });
       navigate('/dashboard');
-    } catch (error: any) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+    } catch {
+      toast({ title: 'Erro ao salvar', description: 'Não foi possível salvar o contrato. Tente novamente.', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -298,7 +227,7 @@ export default function NewContract() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome completo <span className="text-destructive">*</span></Label>
-                    <Input value={dados.prestadorNome} onChange={e => updateField('prestadorNome', e.target.value)} placeholder="Nome do prestador" />
+                    <Input value={dados.prestadorNome} onChange={e => updateField('prestadorNome', e.target.value)} placeholder="Nome do prestador" maxLength={MAX_NAME_LENGTH} />
                   </div>
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
@@ -310,7 +239,7 @@ export default function NewContract() {
                 </div>
                 <div className="space-y-2">
                   <Label>Endereço <span className="text-destructive">*</span></Label>
-                  <Input value={dados.prestadorEndereco} onChange={e => updateField('prestadorEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" />
+                  <Input value={dados.prestadorEndereco} onChange={e => updateField('prestadorEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" maxLength={MAX_ADDRESS_LENGTH} />
                 </div>
               </CardContent>
             </Card>
@@ -321,7 +250,7 @@ export default function NewContract() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome completo <span className="text-destructive">*</span></Label>
-                    <Input value={dados.contratanteNome} onChange={e => updateField('contratanteNome', e.target.value)} placeholder="Nome do contratante" />
+                    <Input value={dados.contratanteNome} onChange={e => updateField('contratanteNome', e.target.value)} placeholder="Nome do contratante" maxLength={MAX_NAME_LENGTH} />
                   </div>
                   <div className="space-y-2">
                     <Label>CPF ou CNPJ <span className="text-destructive">*</span></Label>
@@ -333,7 +262,7 @@ export default function NewContract() {
                 </div>
                 <div className="space-y-2">
                   <Label>Endereço <span className="text-destructive">*</span></Label>
-                  <Input value={dados.contratanteEndereco} onChange={e => updateField('contratanteEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" />
+                  <Input value={dados.contratanteEndereco} onChange={e => updateField('contratanteEndereco', e.target.value)} placeholder="Rua, número, cidade, estado" maxLength={MAX_ADDRESS_LENGTH} />
                 </div>
               </CardContent>
             </Card>
@@ -343,7 +272,7 @@ export default function NewContract() {
                 <h3 className="font-semibold text-foreground text-lg">Detalhes do Contrato</h3>
                 <div className="space-y-2">
                   <Label>Descrição detalhada do serviço <span className="text-destructive">*</span></Label>
-                  <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} />
+                  <Textarea value={dados.descricaoServico} onChange={e => updateField('descricaoServico', e.target.value)} placeholder="Descreva os serviços a serem prestados..." rows={4} maxLength={2000} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -379,7 +308,7 @@ export default function NewContract() {
                   </div>
                   <div className="space-y-2">
                     <Label>Cidade do foro <span className="text-destructive">*</span></Label>
-                    <Input value={dados.cidadeForo} onChange={e => updateField('cidadeForo', e.target.value)} placeholder="São Paulo - SP" />
+                     <Input value={dados.cidadeForo} onChange={e => updateField('cidadeForo', e.target.value)} placeholder="São Paulo - SP" maxLength={100} />
                   </div>
                 </div>
               </CardContent>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchUserContracts, ContractListItem } from '@/services/contracts';
+import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,39 +10,29 @@ import { useToast } from '@/hooks/use-toast';
 import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2 } from 'lucide-react';
 import PricingModal from '@/components/PricingModal';
 
-interface Contrato {
-  id: string;
-  titulo: string;
-  tipo: string;
-  status: string;
-  created_at: string;
-}
-
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [contratos, setContratos] = useState<Contrato[]>([]);
-  const [profile, setProfile] = useState<{ plano: string; contratos_mes: number } | null>(null);
+  const [contratos, setContratos] = useState<ContractListItem[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [pricingOpen, setPricingOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
-        const [{ data: profileData, error: profileError }, { data: contratosData, error: contratosError }] = await Promise.all([
-          supabase.from('profiles').select('plano, contratos_mes').eq('user_id', user.id).single(),
-          supabase.from('contratos').select('id, titulo, tipo, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        const [profileData, contratosData] = await Promise.all([
+          fetchUserProfile(user.id),
+          fetchUserContracts(user.id),
         ]);
-        if (profileError) throw profileError;
-        if (contratosError) throw contratosError;
         if (profileData) setProfile(profileData);
-        if (contratosData) setContratos(contratosData);
+        setContratos(contratosData);
       } catch {
         toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
       }
     };
-    fetchData();
+    loadData();
   }, [user]);
 
   const maxContratos = profile?.plano === 'free' ? 3 : 999;
