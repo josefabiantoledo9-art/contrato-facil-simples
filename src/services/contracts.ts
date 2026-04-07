@@ -26,11 +26,16 @@ export interface PaginatedContracts {
   count: number;
 }
 
+export type SortField = 'created_at' | 'titulo' | 'status';
+export type SortDir = 'asc' | 'desc';
+
 export async function fetchUserContracts(
   userId: string,
   page = 1,
   pageSize = 10,
   search = '',
+  sortField: SortField = 'created_at',
+  sortDir: SortDir = 'desc',
 ): Promise<PaginatedContracts> {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -46,7 +51,7 @@ export async function fetchUserContracts(
   }
 
   const { data, error, count } = await query
-    .order('created_at', { ascending: false })
+    .order(sortField, { ascending: sortDir === 'asc' })
     .range(from, to);
 
   if (error) throw new Error('Erro ao carregar contratos.');
