@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const PAGE_SIZE = 10;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
