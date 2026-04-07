@@ -80,7 +80,7 @@ export default function Dashboard() {
       }
     };
     loadData();
-  }, [user, page]);
+  }, [user, page, searchDebounced]);
 
   const maxContratos = profile?.plano === 'free' ? 3 : 999;
   const isFreeLimitReached = profile?.plano === 'free' && (profile?.contratos_mes ?? 0) >= 3;
@@ -150,7 +150,19 @@ export default function Dashboard() {
           Novo contrato
         </Button>
 
-        <h2 className="text-lg font-semibold text-foreground mb-4">Seus contratos</h2>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Seus contratos</h2>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por título ou tipo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              maxLength={100}
+            />
+          </div>
+        </div>
         {contratos.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground">
