@@ -7,9 +7,10 @@ import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2 } from 'lucide-react';
+import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2, Search } from 'lucide-react';
 import PricingModal from '@/components/PricingModal';
 
 export default function Dashboard() {
