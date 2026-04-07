@@ -7,9 +7,10 @@ import { fetchUserProfile, UserProfile } from '@/services/profiles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2 } from 'lucide-react';
+import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2, Search } from 'lucide-react';
 import PricingModal from '@/components/PricingModal';
 
 export default function Dashboard() {
@@ -23,13 +24,15 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const PAGE_SIZE = 10;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const loadContracts = async (p: number) => {
+  const loadContracts = async (p: number, q: string) => {
     if (!user) return;
     try {
-      const result = await fetchUserContracts(user.id, p, PAGE_SIZE);
+      const result = await fetchUserContracts(user.id, p, PAGE_SIZE, q);
       setContratos(result.data);
       setTotalCount(result.count);
     } catch {
@@ -37,13 +40,22 @@ export default function Dashboard() {
     }
   };
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const handleDelete = async () => {
     if (!user || !deleteTarget) return;
     setDeleting(true);
     try {
       await deleteContract(deleteTarget.id, user.id);
       toast({ title: 'Contrato excluído', description: 'O contrato foi removido com sucesso.' });
-      await loadContracts(page);
+      await loadContracts(page, searchDebounced);
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível excluir o contrato.', variant: 'destructive' });
     } finally {
@@ -58,7 +70,7 @@ export default function Dashboard() {
       try {
         const [profileData, contratosResult] = await Promise.all([
           fetchUserProfile(user.id),
-          fetchUserContracts(user.id, page, PAGE_SIZE),
+          fetchUserContracts(user.id, page, PAGE_SIZE, searchDebounced),
         ]);
         if (profileData) setProfile(profileData);
         setContratos(contratosResult.data);
@@ -68,7 +80,7 @@ export default function Dashboard() {
       }
     };
     loadData();
-  }, [user, page]);
+  }, [user, page, searchDebounced]);
 
   const maxContratos = profile?.plano === 'free' ? 3 : 999;
   const isFreeLimitReached = profile?.plano === 'free' && (profile?.contratos_mes ?? 0) >= 3;
@@ -138,7 +150,19 @@ export default function Dashboard() {
           Novo contrato
         </Button>
 
-        <h2 className="text-lg font-semibold text-foreground mb-4">Seus contratos</h2>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Seus contratos</h2>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por título ou tipo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              maxLength={100}
+            />
+          </div>
+        </div>
         {contratos.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground">

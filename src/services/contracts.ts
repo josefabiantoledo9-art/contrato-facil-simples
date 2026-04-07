@@ -30,14 +30,22 @@ export async function fetchUserContracts(
   userId: string,
   page = 1,
   pageSize = 10,
+  search = '',
 ): Promise<PaginatedContracts> {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const { data, error, count } = await supabase
+  let query = supabase
     .from('contratos')
     .select(SAFE_CONTRACT_COLUMNS, { count: 'exact' })
-    .eq('user_id', userId)
+    .eq('user_id', userId);
+
+  if (search.trim()) {
+    const term = `%${search.trim()}%`;
+    query = query.or(`titulo.ilike.${term},tipo.ilike.${term}`);
+  }
+
+  const { data, error, count } = await query
     .order('created_at', { ascending: false })
     .range(from, to);
 
