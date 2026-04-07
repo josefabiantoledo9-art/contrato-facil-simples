@@ -55,7 +55,7 @@ export default function Dashboard() {
     try {
       await deleteContract(deleteTarget.id, user.id);
       toast({ title: 'Contrato excluído', description: 'O contrato foi removido com sucesso.' });
-      await loadContracts(page);
+      await loadContracts(page, searchDebounced);
     } catch {
       toast({ title: 'Erro', description: 'Não foi possível excluir o contrato.', variant: 'destructive' });
     } finally {
@@ -70,7 +70,7 @@ export default function Dashboard() {
       try {
         const [profileData, contratosResult] = await Promise.all([
           fetchUserProfile(user.id),
-          fetchUserContracts(user.id, page, PAGE_SIZE),
+          fetchUserContracts(user.id, page, PAGE_SIZE, searchDebounced),
         ]);
         if (profileData) setProfile(profileData);
         setContratos(contratosResult.data);
