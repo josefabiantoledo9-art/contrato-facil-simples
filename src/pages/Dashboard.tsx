@@ -154,6 +154,8 @@ export default function Dashboard() {
           Novo contrato
         </Button>
 
+        <ContractsChart contratos={contratos} />
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold text-foreground">Seus contratos</h2>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
