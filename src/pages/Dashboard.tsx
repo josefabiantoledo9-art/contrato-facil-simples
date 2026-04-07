@@ -35,7 +35,7 @@ export default function Dashboard() {
   const loadContracts = async (p: number, q: string) => {
     if (!user) return;
     try {
-      const result = await fetchUserContracts(user.id, p, PAGE_SIZE, q);
+      const result = await fetchUserContracts(user.id, p, PAGE_SIZE, q, sortField, sortDir);
       setContratos(result.data);
       setTotalCount(result.count);
     } catch {
@@ -73,7 +73,7 @@ export default function Dashboard() {
       try {
         const [profileData, contratosResult] = await Promise.all([
           fetchUserProfile(user.id),
-          fetchUserContracts(user.id, page, PAGE_SIZE, searchDebounced),
+          fetchUserContracts(user.id, page, PAGE_SIZE, searchDebounced, sortField, sortDir),
         ]);
         if (profileData) setProfile(profileData);
         setContratos(contratosResult.data);
@@ -83,7 +83,7 @@ export default function Dashboard() {
       }
     };
     loadData();
-  }, [user, page, searchDebounced]);
+  }, [user, page, searchDebounced, sortField, sortDir]);
 
   const maxContratos = profile?.plano === 'free' ? 3 : 999;
   const isFreeLimitReached = profile?.plano === 'free' && (profile?.contratos_mes ?? 0) >= 3;
@@ -155,15 +155,39 @@ export default function Dashboard() {
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold text-foreground">Seus contratos</h2>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por título ou tipo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-              maxLength={100}
-            />
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por título ou tipo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+                maxLength={100}
+              />
+            </div>
+            <Select
+              value={`${sortField}:${sortDir}`}
+              onValueChange={(v) => {
+                const [field, dir] = v.split(':') as [SortField, SortDir];
+                setSortField(field);
+                setSortDir(dir);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48">
+                <ArrowUpDown className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at:desc">Mais recentes</SelectItem>
+                <SelectItem value="created_at:asc">Mais antigos</SelectItem>
+                <SelectItem value="titulo:asc">Título A-Z</SelectItem>
+                <SelectItem value="titulo:desc">Título Z-A</SelectItem>
+                <SelectItem value="status:asc">Status A-Z</SelectItem>
+                <SelectItem value="status:desc">Status Z-A</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         {contratos.length === 0 ? (
