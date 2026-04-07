@@ -29,16 +29,25 @@ export default function Dashboard() {
   const PAGE_SIZE = 10;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const loadContracts = async (p: number) => {
+  const loadContracts = async (p: number, q: string) => {
     if (!user) return;
     try {
-      const result = await fetchUserContracts(user.id, p, PAGE_SIZE);
+      const result = await fetchUserContracts(user.id, p, PAGE_SIZE, q);
       setContratos(result.data);
       setTotalCount(result.count);
     } catch {
       toast({ title: 'Erro', description: 'Erro ao carregar seus contratos. Tente novamente.', variant: 'destructive' });
     }
   };
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchDebounced(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const handleDelete = async () => {
     if (!user || !deleteTarget) return;
