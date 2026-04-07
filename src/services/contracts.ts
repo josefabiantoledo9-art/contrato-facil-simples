@@ -93,7 +93,7 @@ export async function updateContract(
   userId: string,
   updates: { titulo?: string; tipo?: string; dados?: ContractData; status?: 'rascunho' | 'gerado' },
 ): Promise<void> {
-  const sanitized: Record<string, unknown> = {};
+  const sanitized: { titulo?: string; tipo?: string; dados?: Json; status?: string } = {};
   if (updates.titulo !== undefined) sanitized.titulo = updates.titulo.slice(0, 200);
   if (updates.tipo !== undefined) sanitized.tipo = updates.tipo.slice(0, 100);
   if (updates.dados !== undefined) sanitized.dados = updates.dados as unknown as Json;
