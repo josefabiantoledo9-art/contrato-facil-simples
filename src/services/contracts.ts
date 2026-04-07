@@ -88,6 +88,26 @@ export async function createContract(params: {
   if (error) throw new Error('Erro ao salvar contrato.');
 }
 
+export async function updateContract(
+  contractId: string,
+  userId: string,
+  updates: { titulo?: string; tipo?: string; dados?: ContractData; status?: 'rascunho' | 'gerado' },
+): Promise<void> {
+  const sanitized: { titulo?: string; tipo?: string; dados?: Json; status?: string } = {};
+  if (updates.titulo !== undefined) sanitized.titulo = updates.titulo.slice(0, 200);
+  if (updates.tipo !== undefined) sanitized.tipo = updates.tipo.slice(0, 100);
+  if (updates.dados !== undefined) sanitized.dados = updates.dados as unknown as Json;
+  if (updates.status !== undefined) sanitized.status = updates.status;
+
+  const { error } = await supabase
+    .from('contratos')
+    .update(sanitized)
+    .eq('id', contractId)
+    .eq('user_id', userId);
+
+  if (error) throw new Error('Erro ao atualizar contrato.');
+}
+
 export async function deleteContract(contractId: string, userId: string): Promise<void> {
   const { error } = await supabase
     .from('contratos')
