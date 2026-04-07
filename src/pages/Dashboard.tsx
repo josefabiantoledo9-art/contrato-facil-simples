@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { FileText, Plus, LogOut, Crown, Clock, CheckCircle2, Trash2, Search, ArrowUpDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PricingModal from '@/components/PricingModal';
+import ContractsChart from '@/components/ContractsChart';
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -152,6 +153,8 @@ export default function Dashboard() {
           <Plus className="h-5 w-5 mr-2" />
           Novo contrato
         </Button>
+
+        <ContractsChart contratos={contratos} />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold text-foreground">Seus contratos</h2>
