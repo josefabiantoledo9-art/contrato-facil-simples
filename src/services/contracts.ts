@@ -134,7 +134,7 @@ export async function updateContract(
     status?: 'rascunho' | 'gerado';
   },
 ) {
-  const sanitized: Record<string, unknown> = {};
+  const sanitized: any = {};
 
   if (updates.titulo) sanitized.titulo = sanitizeText(updates.titulo, 200);
   if (updates.tipo) sanitized.tipo = sanitizeText(updates.tipo, 100);
