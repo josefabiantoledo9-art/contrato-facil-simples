@@ -5,45 +5,37 @@ import type { Json } from '@/integrations/supabase/types';
 const SAFE_CONTRACT_COLUMNS = 'id, titulo, tipo, status, created_at' as const;
 const DETAIL_CONTRACT_COLUMNS = 'titulo, tipo, status, dados, created_at' as const;
 
-export interface ContractListItem {
-  id: string;
-  titulo: string;
-  tipo: string;
-  status: string;
-  created_at: string;
+// 🔐 Sanitização central
+function sanitizeText(text: string, max: number) {
+  return text
+    .replace(/<[^>]*>?/gm, '')
+    .slice(0, max)
+    .trim();
 }
 
-export interface ContractDetail {
-  titulo: string;
-  tipo: string;
-  status: string;
-  dados: ContractData;
-  created_at: string;
+// 🔐 Sanitização de dados
+function sanitizeDados(dados: ContractData): Json {
+  return {
+    ...dados,
+    prestadorNome: sanitizeText(dados.prestadorNome, 200),
+    contratanteNome: sanitizeText(dados.contratanteNome, 200),
+    descricaoServico: sanitizeText(dados.descricaoServico, 2000),
+    cidadeForo: sanitizeText(dados.cidadeForo, 100),
+  } as unknown as Json;
 }
 
-export interface PaginatedContracts {
-  data: ContractListItem[];
-  count: number;
-}
-
-export type SortField = 'created_at' | 'titulo' | 'status';
-export type SortDir = 'asc' | 'desc';
-
+// 🔍 LISTAR (RLS já protege — não precisa userId)
 export async function fetchUserContracts(
-  userId: string,
   page = 1,
   pageSize = 10,
   search = '',
-  sortField: SortField = 'created_at',
-  sortDir: SortDir = 'desc',
-): Promise<PaginatedContracts> {
+) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
   let query = supabase
     .from('contratos')
-    .select(SAFE_CONTRACT_COLUMNS, { count: 'exact' })
-    .eq('user_id', userId);
+    .select(SAFE_CONTRACT_COLUMNS, { count: 'exact' });
 
   if (search.trim()) {
     const term = `%${search.trim()}%`;
@@ -51,69 +43,69 @@ export async function fetchUserContracts(
   }
 
   const { data, error, count } = await query
-    .order(sortField, { ascending: sortDir === 'asc' })
+    .order('created_at', { ascending: false })
     .range(from, to);
 
   if (error) throw new Error('Erro ao carregar contratos.');
   return { data: data ?? [], count: count ?? 0 };
 }
 
-export async function fetchContractById(contractId: string, userId: string): Promise<ContractDetail | null> {
+// 🔍 DETALHE
+export async function fetchContractById(contractId: string) {
   const { data, error } = await supabase
     .from('contratos')
     .select(DETAIL_CONTRACT_COLUMNS)
     .eq('id', contractId)
-    .eq('user_id', userId)
     .single();
 
   if (error || !data) return null;
-  return { ...data, dados: data.dados as unknown as ContractData };
+  return data;
 }
 
+// ➕ CRIAR
 export async function createContract(params: {
-  userId: string;
   titulo: string;
   tipo: string;
   dados: ContractData;
   status: 'rascunho' | 'gerado';
-}): Promise<void> {
+}) {
   const { error } = await supabase.from('contratos').insert({
-    user_id: params.userId,
-    titulo: params.titulo.slice(0, 200),
-    tipo: params.tipo.slice(0, 100),
-    dados: params.dados as unknown as Json,
+    // 🔐 NÃO passa user_id (RLS resolve)
+    titulo: sanitizeText(params.titulo, 200),
+    tipo: sanitizeText(params.tipo, 100),
+    dados: sanitizeDados(params.dados),
     status: params.status,
   });
 
   if (error) throw new Error('Erro ao salvar contrato.');
 }
 
+// ✏️ UPDATE
 export async function updateContract(
   contractId: string,
-  userId: string,
   updates: { titulo?: string; tipo?: string; dados?: ContractData; status?: 'rascunho' | 'gerado' },
-): Promise<void> {
-  const sanitized: { titulo?: string; tipo?: string; dados?: Json; status?: string } = {};
-  if (updates.titulo !== undefined) sanitized.titulo = updates.titulo.slice(0, 200);
-  if (updates.tipo !== undefined) sanitized.tipo = updates.tipo.slice(0, 100);
-  if (updates.dados !== undefined) sanitized.dados = updates.dados as unknown as Json;
-  if (updates.status !== undefined) sanitized.status = updates.status;
+) {
+  const sanitized: any = {};
+
+  if (updates.titulo) sanitized.titulo = sanitizeText(updates.titulo, 200);
+  if (updates.tipo) sanitized.tipo = sanitizeText(updates.tipo, 100);
+  if (updates.dados) sanitized.dados = sanitizeDados(updates.dados);
+  if (updates.status) sanitized.status = updates.status;
 
   const { error } = await supabase
     .from('contratos')
     .update(sanitized)
-    .eq('id', contractId)
-    .eq('user_id', userId);
+    .eq('id', contractId);
 
   if (error) throw new Error('Erro ao atualizar contrato.');
 }
 
-export async function deleteContract(contractId: string, userId: string): Promise<void> {
+// ❌ DELETE
+export async function deleteContract(contractId: string) {
   const { error } = await supabase
     .from('contratos')
     .delete()
-    .eq('id', contractId)
-    .eq('user_id', userId);
+    .eq('id', contractId);
 
   if (error) throw new Error('Erro ao excluir contrato.');
 }
