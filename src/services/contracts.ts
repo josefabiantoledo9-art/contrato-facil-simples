@@ -2,20 +2,41 @@ import { supabase } from '@/integrations/supabase/client';
 import type { ContractData } from '@/lib/contract-templates';
 import type { Json } from '@/integrations/supabase/types';
 
+// 🔐 Tipos exportados
+export type ContractListItem = {
+  id: string;
+  titulo: string;
+  tipo: string;
+  status: string;
+  created_at: string;
+};
+
+export type ContractDetailData = {
+  titulo: string;
+  tipo: string;
+  status: string;
+  dados: ContractData;
+  created_at: string;
+};
+
+export type SortField = 'created_at' | 'titulo' | 'status';
+export type SortDir = 'asc' | 'desc';
+
+// Alias for backward compat
+export type { ContractDetailData as ContractDetail };
+
 const SAFE_CONTRACT_COLUMNS = 'id, titulo, tipo, status, created_at' as const;
 const DETAIL_CONTRACT_COLUMNS = 'titulo, tipo, status, dados, created_at' as const;
 
-// 🔐 Sanitização segura (corrigido bug de undefined)
+// 🔐 Sanitização segura
 function sanitizeText(text: string | undefined | null, max: number) {
   if (!text) return '';
-
   return text
     .replace(/<[^>]*>?/gm, '')
     .slice(0, max)
     .trim();
 }
 
-// 🔐 Sanitização de dados (segura)
 function sanitizeDados(dados: ContractData): Json {
   return {
     ...dados,
@@ -28,9 +49,12 @@ function sanitizeDados(dados: ContractData): Json {
 
 // 🔍 LISTAR
 export async function fetchUserContracts(
+  userId: string,
   page = 1,
   pageSize = 10,
   search = '',
+  sortField: SortField = 'created_at',
+  sortDir: SortDir = 'desc',
 ) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -45,7 +69,7 @@ export async function fetchUserContracts(
   }
 
   const { data, error, count } = await query
-    .order('created_at', { ascending: false })
+    .order(sortField, { ascending: sortDir === 'asc' })
     .range(from, to);
 
   if (error) {
@@ -53,11 +77,11 @@ export async function fetchUserContracts(
     throw new Error('Erro ao carregar contratos.');
   }
 
-  return { data: data ?? [], count: count ?? 0 };
+  return { data: (data ?? []) as ContractListItem[], count: count ?? 0 };
 }
 
 // 🔍 DETALHE
-export async function fetchContractById(contractId: string) {
+export async function fetchContractById(contractId: string, userId: string) {
   const { data, error } = await supabase
     .from('contratos')
     .select(DETAIL_CONTRACT_COLUMNS)
@@ -69,17 +93,17 @@ export async function fetchContractById(contractId: string) {
     return null;
   }
 
-  return data;
+  return data as unknown as ContractDetailData | null;
 }
 
 // ➕ CRIAR
 export async function createContract(params: {
+  userId: string;
   titulo: string;
   tipo: string;
   dados: ContractData;
   status: 'rascunho' | 'gerado';
 }) {
-  // 🔐 garante usuário logado
   const { data: userData } = await supabase.auth.getUser();
 
   if (!userData.user) {
@@ -87,6 +111,7 @@ export async function createContract(params: {
   }
 
   const { error } = await supabase.from('contratos').insert({
+    user_id: userData.user.id,
     titulo: sanitizeText(params.titulo, 200),
     tipo: sanitizeText(params.tipo, 100),
     dados: sanitizeDados(params.dados),
@@ -109,7 +134,7 @@ export async function updateContract(
     status?: 'rascunho' | 'gerado';
   },
 ) {
-  const sanitized: any = {};
+  const sanitized: Record<string, unknown> = {};
 
   if (updates.titulo) sanitized.titulo = sanitizeText(updates.titulo, 200);
   if (updates.tipo) sanitized.tipo = sanitizeText(updates.tipo, 100);
@@ -128,7 +153,7 @@ export async function updateContract(
 }
 
 // ❌ DELETE
-export async function deleteContract(contractId: string) {
+export async function deleteContract(contractId: string, userId: string) {
   const { error } = await supabase
     .from('contratos')
     .delete()
