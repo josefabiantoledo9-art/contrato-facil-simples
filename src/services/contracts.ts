@@ -5,26 +5,28 @@ import type { Json } from '@/integrations/supabase/types';
 const SAFE_CONTRACT_COLUMNS = 'id, titulo, tipo, status, created_at' as const;
 const DETAIL_CONTRACT_COLUMNS = 'titulo, tipo, status, dados, created_at' as const;
 
-// 🔐 Sanitização central
-function sanitizeText(text: string, max: number) {
+// 🔐 Sanitização segura (corrigido bug de undefined)
+function sanitizeText(text: string | undefined | null, max: number) {
+  if (!text) return '';
+
   return text
     .replace(/<[^>]*>?/gm, '')
     .slice(0, max)
     .trim();
 }
 
-// 🔐 Sanitização de dados
+// 🔐 Sanitização de dados (segura)
 function sanitizeDados(dados: ContractData): Json {
   return {
     ...dados,
-    prestadorNome: sanitizeText(dados.prestadorNome, 200),
-    contratanteNome: sanitizeText(dados.contratanteNome, 200),
-    descricaoServico: sanitizeText(dados.descricaoServico, 2000),
-    cidadeForo: sanitizeText(dados.cidadeForo, 100),
+    prestadorNome: sanitizeText(dados?.prestadorNome, 200),
+    contratanteNome: sanitizeText(dados?.contratanteNome, 200),
+    descricaoServico: sanitizeText(dados?.descricaoServico, 2000),
+    cidadeForo: sanitizeText(dados?.cidadeForo, 100),
   } as unknown as Json;
 }
 
-// 🔍 LISTAR (RLS já protege — não precisa userId)
+// 🔍 LISTAR
 export async function fetchUserContracts(
   page = 1,
   pageSize = 10,
@@ -46,7 +48,11 @@ export async function fetchUserContracts(
     .order('created_at', { ascending: false })
     .range(from, to);
 
-  if (error) throw new Error('Erro ao carregar contratos.');
+  if (error) {
+    console.error(error);
+    throw new Error('Erro ao carregar contratos.');
+  }
+
   return { data: data ?? [], count: count ?? 0 };
 }
 
@@ -58,7 +64,11 @@ export async function fetchContractById(contractId: string) {
     .eq('id', contractId)
     .single();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
   return data;
 }
 
@@ -69,21 +79,35 @@ export async function createContract(params: {
   dados: ContractData;
   status: 'rascunho' | 'gerado';
 }) {
+  // 🔐 garante usuário logado
+  const { data: userData } = await supabase.auth.getUser();
+
+  if (!userData.user) {
+    throw new Error('Usuário não autenticado');
+  }
+
   const { error } = await supabase.from('contratos').insert({
-    // 🔐 NÃO passa user_id (RLS resolve)
     titulo: sanitizeText(params.titulo, 200),
     tipo: sanitizeText(params.tipo, 100),
     dados: sanitizeDados(params.dados),
     status: params.status,
   });
 
-  if (error) throw new Error('Erro ao salvar contrato.');
+  if (error) {
+    console.error(error);
+    throw new Error('Erro ao salvar contrato.');
+  }
 }
 
 // ✏️ UPDATE
 export async function updateContract(
   contractId: string,
-  updates: { titulo?: string; tipo?: string; dados?: ContractData; status?: 'rascunho' | 'gerado' },
+  updates: {
+    titulo?: string;
+    tipo?: string;
+    dados?: ContractData;
+    status?: 'rascunho' | 'gerado';
+  },
 ) {
   const sanitized: any = {};
 
@@ -97,7 +121,10 @@ export async function updateContract(
     .update(sanitized)
     .eq('id', contractId);
 
-  if (error) throw new Error('Erro ao atualizar contrato.');
+  if (error) {
+    console.error(error);
+    throw new Error('Erro ao atualizar contrato.');
+  }
 }
 
 // ❌ DELETE
@@ -107,5 +134,8 @@ export async function deleteContract(contractId: string) {
     .delete()
     .eq('id', contractId);
 
-  if (error) throw new Error('Erro ao excluir contrato.');
+  if (error) {
+    console.error(error);
+    throw new Error('Erro ao excluir contrato.');
+  }
 }
