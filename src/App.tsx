@@ -9,6 +9,7 @@ import Auth from "./pages/Auth.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import NewContract from "./pages/NewContract.tsx";
 import ContractDetail from "./pages/ContractDetail.tsx";
+import AdminDashboard from "./pages/AdminDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/novo-contrato" element={<ProtectedRoute><NewContract /></ProtectedRoute>} />
             <Route path="/contrato/:id" element={<ProtectedRoute><ContractDetail /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
